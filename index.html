@@ -147,6 +147,81 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/11/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E5%88%B6%E4%BD%9C%E7%AC%AC%E4%B8%80%E5%A4%A9/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/11/11/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E5%88%B6%E4%BD%9C%E7%AC%AC%E4%B8%80%E5%A4%A9/" class="post-title-link" itemprop="url">操作系统制作第一天</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-11-11 02:21:50 / 修改时间：02:23:01" itemprop="dateCreated datePublished" datetime="2021-11-11T02:21:50+08:00">2021-11-11</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="操作系统制作第一天"><a href="#操作系统制作第一天" class="headerlink" title="操作系统制作第一天"></a>操作系统制作第一天</h1><p>启动区代码编写</p>
+<p>就我个人浅薄的认知，启动区就是启动我们写的操作系统的，启动程序和操作系统程序都是储存在软盘中的，先简单介绍一下软盘是如何分区的，</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20211111010932548.png" alt="image-20211111010932548"></p>
+<p>把磁盘分为八十个柱面，然后每个柱面有18个扇区，每个扇区514个字节，软盘两面都可以用，磁头可以是0或者1，这样算下来这个软盘的大小就是18 * 80 * 2 * 514=1440kb</p>
+<p>这样就相当于为每个514字节的储存单元分配下标，通过这个下标就可以索引到这个位置，启动程序储存在第一个柱面的第一个扇区，磁头为0，那这个位置的下标就是C0-H0-S1，这是第一个扇区，所以用来储存启动程序，后面的扇面用来储存操作系统程序</p>
+<p>柱面，磁头和扇区都专门有一个寄存器来储存值，通过寄存器索引位置</p>
+<p>CH:柱面寄存器</p>
+<p>CL:扇区寄存器</p>
+<p>DH:驱动器号</p>
+<p>启动程序的作用就是把操作系统装载到内存中去，以下就是实现过程。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br></pre></td><td class="code"><pre><span class="line">; haribote-ipl</span><br><span class="line">; TAB=4</span><br><span class="line"></span><br><span class="line">		ORG		0x7c00			</span><br><span class="line">		;这个指令指定这些机器语言要装载到内存的哪个位置，后面跟一个地址</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">		JMP		entry</span><br><span class="line">		;跳转指令，跳转到entry代码段，entry是一个符号代表了对应地址，entry代码段的地址是</span><br><span class="line">		;0x7c50,所以这个指令也可以写成JMP 0x7c50</span><br><span class="line">		DB		0x90</span><br><span class="line">		DB		&quot;HARIBOTE&quot;		</span><br><span class="line">		DW		512				</span><br><span class="line">		DB		1				</span><br><span class="line">		DW		1				</span><br><span class="line">		DB		2				</span><br><span class="line">		DW		224				</span><br><span class="line">		DW		2880			</span><br><span class="line">		DB		0xf0			</span><br><span class="line">		DW		9				</span><br><span class="line">		DW		18				</span><br><span class="line">		DW		2				</span><br><span class="line">		DD		0				</span><br><span class="line">		DD		2880			</span><br><span class="line">		DB		0,0,0x29		</span><br><span class="line">		DD		0xffffffff		</span><br><span class="line">		DB		&quot;HARIBOTEOS &quot;	</span><br><span class="line">		DB		&quot;FAT12   &quot;		</span><br><span class="line">		RESB	18				</span><br><span class="line"></span><br><span class="line">entry:</span><br><span class="line">		MOV		AX,0</span><br><span class="line">        ;AX:累加寄存器，这里把AX置0</span><br><span class="line">		MOV		SS,AX</span><br><span class="line">		;SS:栈段寄存器，他是一个段寄存器，通过[SS:SP]找到栈顶，令栈段为0</span><br><span class="line">		MOV		SP,0x7c00</span><br><span class="line">		;SP:栈指针寄存器，令栈顶为0x7c00</span><br><span class="line">		MOV		DS,AX</span><br><span class="line">		;DS:数据段寄存器，也是段寄存器</span><br><span class="line">		MOV		AX,0x0820</span><br><span class="line">		;这里令AX为0x0820</span><br><span class="line">		MOV		ES,AX</span><br><span class="line">		;ES:缓存段寄存器，可以通过[ES:BX]来寻址</span><br><span class="line">		MOV		CH,0</span><br><span class="line">        ;确定柱面</span><br><span class="line">		MOV		DH,0</span><br><span class="line">        ;确定驱动号</span><br><span class="line">		MOV		CL,2</span><br><span class="line">        ;确定扇区</span><br><span class="line">readloop:</span><br><span class="line">		MOV		SI,0</span><br><span class="line">        ;si:代码地址寄存器，但注意不是代码段寄存器</span><br><span class="line">retry:</span><br><span class="line">		MOV		AH,0x02	</span><br><span class="line">        ;累加寄存器高位，这个就代表读盘的意思</span><br><span class="line">		MOV		AL,1	</span><br><span class="line">        ;按我的立即接就是要连续储存几个扇区，这里就填几，这里填一代表是扇区2</span><br><span class="line">		MOV		BX,0</span><br><span class="line">		MOV		DL,0x00</span><br><span class="line">        ;A驱动器</span><br><span class="line">		INT		0x13	</span><br><span class="line">        调用读盘函数</span><br><span class="line">		JNC		next	</span><br><span class="line">        ;JNC,进位标志为0就进位，进位标志指只能存储以为信息的寄存器，如果函数调用没有错</span><br><span class="line">        ;就置0，如果有错就置一，这里可以看出没错就跳转到next代码段</span><br><span class="line">		ADD		SI,1	</span><br><span class="line">        ;si记录失败次数</span><br><span class="line">		CMP		SI,5			</span><br><span class="line">		;如果失败多于五次就跳转到error代码段</span><br><span class="line">		JAE		error</span><br><span class="line">        ;后面的这些按我的理解就是恢复环境然后重新执行retry</span><br><span class="line">		MOV		AH,0x00</span><br><span class="line">		</span><br><span class="line">		MOV		DL,0x00			</span><br><span class="line">		INT		0x13			</span><br><span class="line">		JMP		retry</span><br><span class="line">next:</span><br><span class="line">		MOV		AX,ES		</span><br><span class="line">        ;把缓存区段地址的值给AX</span><br><span class="line">		ADD		AX,0x0020</span><br><span class="line">		;令缓存区地址加0x200因为执行到这里时已经读完了一个扇区，要读下一个扇区就要指定</span><br><span class="line">		;下一个扇区的缓存地址，原来地址加上514(0x200)就是下一个缓存地址了。</span><br><span class="line">		MOV		ES,AX	</span><br><span class="line">        ;重置ES,为什么不直接ADD	ES,0x0020，我猜测ES是缓存区段地址，不能这样干</span><br><span class="line">		ADD		CL,1	</span><br><span class="line">        ;扇区加一</span><br><span class="line">		CMP		CL,18	</span><br><span class="line">        ;cmp:相当于给cl-18把结果放在某个寄存器里，</span><br><span class="line">		JBE		readloop</span><br><span class="line">        ;JBE:如果这个寄存器小于等于0泽跳转，这里就进行一次判断，如果没读到18扇区就再读</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">fin:</span><br><span class="line">		HLT	</span><br><span class="line">        ;令cpu陷入沉睡</span><br><span class="line">		JMP		fin				</span><br><span class="line"></span><br><span class="line">error:</span><br><span class="line">		MOV		SI,msg</span><br><span class="line">putloop:</span><br><span class="line">		MOV		AL,[SI]</span><br><span class="line">		ADD		SI,1			</span><br><span class="line">		CMP		AL,0</span><br><span class="line">		JE		fin</span><br><span class="line">		MOV		AH,0x0e			</span><br><span class="line">		MOV		BX,15			</span><br><span class="line">		INT		0x10			</span><br><span class="line">		JMP		putloop</span><br><span class="line">msg:</span><br><span class="line">		DB		0x0a, 0x0a		</span><br><span class="line">		DB		&quot;load error&quot;</span><br><span class="line">		DB		0x0a			</span><br><span class="line">		DB		0</span><br><span class="line"></span><br><span class="line">		RESB	0x7dfe-$		</span><br><span class="line"></span><br><span class="line">		DB		0x55, 0xaa</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>上面代码干的事大概搞清楚了，就是把后面扇区储存的操作系统装载到对应内存中</p>
+<p>我再补充一点东西（害怕忘了）<br>INT指令后面再加上数字就是执行某个电脑自带的函数，就像c语言调用函数前得要参数一样，这个函数也得要参数，你要让这个函数干什么事就构建什么样的参数，比如INT 0x13就是读盘函数</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20211111021839915.png" alt="image-20211111021839915"></p>
+<p>比如你要读取扇区为2的数据，那就令cl=2就行</p>
+<p>第一天就先到这了，奥利给</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/08/stack-chk-fail%E7%BB%95%E8%BF%87canary/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -658,7 +733,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-count">6</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
