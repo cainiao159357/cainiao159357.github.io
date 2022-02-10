@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="内核pwn今天就先不刷pwnabe.tw上的题了，开整内核方面的东西。 0x1 环境搭建搭建1起来没有lot环境搭建困难，通过搭建环境也了解了很多东西，我第一次知道文件系统居然是独立的，以前以为一直和内核紧密相连，也越来越理解一切皆文件这句话了，不管是设备还是什么，都可以当做文件操作，真的很神奇。 我是借鉴（照抄）这个博客搭建环境的https:&#x2F;&#x2F;www.anquanke.com&#x2F;post&#x2F;id&#x2F;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="内核pwn的环境搭建和初认识">
+<meta property="og:url" content="http://example.com/2022/02/10/%E5%86%85%E6%A0%B8pwn%E7%9A%84%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E5%92%8C%E5%88%9D%E8%AE%A4%E8%AF%86/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="内核pwn今天就先不刷pwnabe.tw上的题了，开整内核方面的东西。 0x1 环境搭建搭建1起来没有lot环境搭建困难，通过搭建环境也了解了很多东西，我第一次知道文件系统居然是独立的，以前以为一直和内核紧密相连，也越来越理解一切皆文件这句话了，不管是设备还是什么，都可以当做文件操作，真的很神奇。 我是借鉴（照抄）这个博客搭建环境的https:&#x2F;&#x2F;www.anquanke.com&#x2F;post&#x2F;id&#x2F;">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-02-10T12:31:19.000Z">
+<meta property="article:modified_time" content="2022-02-10T12:33:39.964Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/02/10/%E5%86%85%E6%A0%B8pwn%E7%9A%84%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E5%92%8C%E5%88%9D%E8%AE%A4%E8%AF%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>内核pwn的环境搭建和初认识 | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/02/10/%E5%86%85%E6%A0%B8pwn%E7%9A%84%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E5%92%8C%E5%88%9D%E8%AE%A4%E8%AF%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          内核pwn的环境搭建和初认识
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-02-10 20:31:19 / 修改时间：20:33:39" itemprop="dateCreated datePublished" datetime="2022-02-10T20:31:19+08:00">2022-02-10</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="内核pwn"><a href="#内核pwn" class="headerlink" title="内核pwn"></a>内核pwn</h1><p>今天就先不刷pwnabe.tw上的题了，开整内核方面的东西。</p>
+<h2 id="0x1-环境搭建"><a href="#0x1-环境搭建" class="headerlink" title="0x1 环境搭建"></a>0x1 环境搭建</h2><p>搭建1起来没有lot环境搭建困难，通过搭建环境也了解了很多东西，我第一次知道文件系统居然是独立的，以前以为一直和内核紧密相连，也越来越理解一切皆文件这句话了，不管是设备还是什么，都可以当做文件操作，真的很神奇。</p>
+<p>我是借鉴（照抄）这个博客搭建环境的<a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/258874%EF%BC%8C%E5%86%99%E7%9A%84%E5%BE%88%E7%BB%86%E5%BE%88%E6%A3%92%EF%BC%8C%E4%B8%8D%E4%BB%85%E8%AE%B2%E4%BA%86%E4%B8%80%E4%BA%9B%E5%8E%9F%E7%90%86%EF%BC%8C%E8%BF%98%E5%BE%88%E7%BB%86%E8%87%B4%E7%9A%84%E6%8A%8A%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E8%AE%B2%E6%98%8E%E7%99%BD%E4%BA%86%EF%BC%8C%E5%9C%A8%E6%90%AD%E5%BB%BA%E8%BF%87%E7%A8%8B%E4%B8%AD%EF%BC%8C%E6%88%91%E4%B8%BB%E8%A6%81%E5%8D%A1%E5%9C%A8%E4%B8%A4%E4%B8%AA%E5%9C%B0%E6%96%B9%E4%BA%86%EF%BC%8C%E4%B8%80%E4%B8%AA%E6%98%AF%E6%88%91%E4%B8%8D%E4%BA%86%E8%A7%A3Makefile,%E6%8A%8AM%E5%B0%8F%E5%86%99%E4%BA%86%EF%BC%8C%E5%AF%BC%E8%87%B4%E7%BC%96%E8%AF%91%E6%A8%A1%E5%9D%97%E7%9A%84%E6%97%B6%E5%80%99%E4%B8%80%E7%9B%B4%E4%B8%8D%E6%88%90%E5%8A%9F%EF%BC%8C%E5%BD%93%E6%97%B6%E9%83%BD%E5%BF%AB%E8%87%AA%E9%97%AD%E4%BA%86%EF%BC%8C%E5%8F%A6%E4%B8%80%E4%B8%AA%E6%98%AF%E6%95%B4%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E7%9A%84%E6%97%B6%E5%80%99%EF%BC%8C%E5%9C%A8etc%E7%9A%84initab%E7%BC%96%E5%86%99%E7%9A%84%E6%97%B6%E5%80%99%E6%9C%89%E6%9D%A1%E6%8C%87%E4%BB%A4%E4%B8%8D%E8%83%BD%E7%85%A7%E6%90%AC%EF%BC%8C%E5%8E%9F%E5%8D%9A%E5%AE%A2%E6%8C%87%E4%BB%A4%E5%A6%82%E4%B8%8B">https://www.anquanke.com/post/id/258874，写的很细很棒，不仅讲了一些原理，还很细致的把环境搭建讲明白了，在搭建过程中，我主要卡在两个地方了，一个是我不了解Makefile,把M小写了，导致编译模块的时候一直不成功，当时都快自闭了，另一个是整文件系统的时候，在etc的initab编写的时候有条指令不能照搬，原博客指令如下</a></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">::sysinit:/etc/init.d/rcS</span><br><span class="line">::askfirst:/bin/ash</span><br><span class="line">::ctrlaltdel:/sbin/reboot</span><br><span class="line">::shutdown:/sbin/swapoff -a</span><br><span class="line">::shutdown:/bin/umount -a -r</span><br><span class="line">::restart:/sbin/init</span><br></pre></td></tr></table></figure>
+
+<p>正确指令</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">::sysinit:/etc/init.d/rcS</span><br><span class="line">ttyS0::askfirst:/bin/ash</span><br><span class="line">::ctrlaltdel:/sbin/reboot</span><br><span class="line">::shutdown:/sbin/swapoff -a</span><br><span class="line">::shutdown:/bin/umount -a -r</span><br><span class="line">::restart:/sbin/init</span><br></pre></td></tr></table></figure>
+
+<p>至于原因，我没看懂😃，剩下的照抄就行了，然后kernel就能通过qemu正确运行了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/pwn$ ./boot.sh</span><br><span class="line">warning: TCG doesn&#x27;t support requested feature: CPUID.01H:EDX.vme [bit 1]</span><br><span class="line">warning: TCG doesn&#x27;t support requested feature: CPUID.01H:EDX.vme [bit 1]</span><br><span class="line">mount: mounting none on /sys failed: No such device</span><br><span class="line"></span><br><span class="line">Please press Enter to activate this console. </span><br><span class="line">/ # ls</span><br><span class="line">bin      etc      init     lib64    proc     sbin     usr</span><br><span class="line">dev      home     lib      linuxrc  root     sys</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="0x2-内核初理解"><a href="#0x2-内核初理解" class="headerlink" title="0x2 内核初理解"></a>0x2 内核初理解</h2><h4 id="内核是什么东西"><a href="#内核是什么东西" class="headerlink" title="内核是什么东西"></a>内核是什么东西</h4><p>内核并不是什么神奇的东西，他也是一个程序，一切的行为都有对应代码支撑，他的定位就是中间层，对上提供用户态程序的运行和对用户态提供抽象的操作硬件的api,对下直接和硬件相互交互的程序。</p>
+<h4 id="内核和用户态的切换"><a href="#内核和用户态的切换" class="headerlink" title="内核和用户态的切换"></a>内核和用户态的切换</h4><p>当发生系统调用，产生异常，外设产生中断等事件的时候，会发生用户态到内核太的切换，一般的函数调用思路就是保存当前栈帧的状态，然后跳到新地址，内核态和用户态的切换也是类似，其中用户态到内核态的切换具体过程如下（照搬的）</p>
+<ol>
+<li><p>通过 <code>swapgs</code> 切换 GS 段寄存器（代码段寄存器），将 GS 寄存器值和一个特定位置的值进行交换，目的是保存 GS 值，同时将该位置的值作为内核执行时的 GS 值使用。</p>
+</li>
+<li><p>将当前栈顶（用户空间栈顶）记录在 CPU 独占变量区域里，将 CPU 独占区域里记录的内核栈顶放入<code>RSP/ESP</code>。</p>
+</li>
+<li><p>通过 push 保存各寄存器值，具体的</p>
+<p>代码如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">ENTRY(entry_SYSCALL_64)</span><br><span class="line">/* SWAPGS_UNSAFE_STACK是一个宏，x86直接定义为swapgs指令 */</span><br><span class="line">SWAPGS_UNSAFE_STACK</span><br><span class="line"></span><br><span class="line">/* 保存栈值，并设置内核栈 */</span><br><span class="line">movq %rsp, PER_CPU_VAR(rsp_scratch)</span><br><span class="line">movq PER_CPU_VAR(cpu_current_top_of_stack), %rsp</span><br><span class="line"></span><br><span class="line">/* 通过push保存寄存器值，形成一个pt_regs结构 */</span><br><span class="line">/* Construct struct pt_regs on stack */</span><br><span class="line">pushq  $__USER_DS                /* pt_regs-&gt;ss */</span><br><span class="line">pushq  PER_CPU_VAR(rsp_scratch)  /* pt_regs-&gt;sp */</span><br><span class="line">pushq  %r11                      /* pt_regs-&gt;flags */</span><br><span class="line">pushq  $__USER_CS                /* pt_regs-&gt;cs */</span><br><span class="line">pushq  %rcx                      /* pt_regs-&gt;ip */</span><br><span class="line">pushq  %rax                      /* pt_regs-&gt;orig_ax */</span><br><span class="line">pushq  %rdi                      /* pt_regs-&gt;di */</span><br><span class="line">pushq  %rsi                      /* pt_regs-&gt;si */</span><br><span class="line">pushq  %rdx                      /* pt_regs-&gt;dx */</span><br><span class="line">pushq  %rcx tuichu               /* pt_regs-&gt;cx */</span><br><span class="line">pushq  $-ENOSYS                  /* pt_regs-&gt;ax */</span><br><span class="line">pushq  %r8                       /* pt_regs-&gt;r8 */</span><br><span class="line">pushq  %r9                       /* pt_regs-&gt;r9 */</span><br><span class="line">pushq  %r10                      /* pt_regs-&gt;r10 */</span><br><span class="line">pushq  %r11                      /* pt_regs-&gt;r11 */</span><br><span class="line">sub $(6*8), %rsp                 /* pt_regs-&gt;bp, bx, r12-15 not saved */</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>内核态到用户态的切换也是如此</p>
+<h4 id="内核的分级保护域"><a href="#内核的分级保护域" class="headerlink" title="内核的分级保护域"></a>内核的分级保护域</h4><p>简称rings,感觉就是权限的意思，大部分现代操作系统只采用ring0权限和ring3权限，ring0权限就是root,kernel就是ring0，ring3权限较低，一般用户态程序就是ring3,以我目前的粗略理解，kernelpwn就是通过内核模块的漏洞对用户态程序进行提权到root然后getshell。</p>
+<h4 id="进程管理"><a href="#进程管理" class="headerlink" title="进程管理"></a>进程管理</h4><p>kernel调度着所有系统资源，进程也是资源，也归kernel管，管理的策略就是使用结构体 <code>task_struct</code> 记录进程信息，每个<code>task_struct</code>都记录着一个进程的信息，其中又有专门的结构体cred记录程序的权限，每个程序都有一个cred结构，如果能修改对应进程的cred，那也就能修改这个进程的权限了，结构体源码如下</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">cred</span> &#123;</span></span><br><span class="line">    <span class="keyword">atomic_t</span>    usage;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_DEBUG_CREDENTIALS</span></span><br><span class="line">    <span class="keyword">atomic_t</span>    subscribers;           <span class="comment">/* number of processes subscribed */</span></span><br><span class="line">    <span class="keyword">void</span>        *put_addr;</span><br><span class="line">    <span class="keyword">unsigned</span>    magic;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CRED_MAGIC  0x43736564</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CRED_MAGIC_DEAD 0x44656144</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">    <span class="keyword">kuid_t</span>      uid;                   <span class="comment">/* real UID of the task */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      gid;                   <span class="comment">/* real GID of the task */</span></span><br><span class="line">    <span class="keyword">kuid_t</span>      suid;                  <span class="comment">/* saved UID of the task */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      sgid;                  <span class="comment">/* saved GID of the task */</span></span><br><span class="line">    <span class="keyword">kuid_t</span>      euid;                  <span class="comment">/* effective UID of the task */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      egid;                  <span class="comment">/* effective GID of the task */</span></span><br><span class="line">    <span class="keyword">kuid_t</span>      fsuid;                 <span class="comment">/* UID for VFS ops */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      fsgid;                 <span class="comment">/* GID for VFS ops */</span></span><br><span class="line">    <span class="keyword">unsigned</span>    securebits;            <span class="comment">/* SUID-less security management */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_inheritable;   <span class="comment">/* caps our children can inherit */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_permitted;     <span class="comment">/* caps we&#x27;re permitted */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_effective;     <span class="comment">/* caps we can actually use */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_bset;          <span class="comment">/* capability bounding set */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_ambient;       <span class="comment">/* Ambient capability set */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_KEYS</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span>   jit_keyring;       <span class="comment">/* default keyring to attach requested</span></span><br><span class="line"><span class="comment">    /* keys to */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span> __<span class="title">rcu</span> *<span class="title">session_keyring</span>;</span> <span class="comment">/* keyring inherited over fork */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span>  *<span class="title">process_keyring</span>;</span>      <span class="comment">/* keyring private to this process */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span>  *<span class="title">thread_keyring</span>;</span>       <span class="comment">/* keyring private to this thread */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span>  *<span class="title">request_key_auth</span>;</span>     <span class="comment">/* assumed request_key authority */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_SECURITY</span></span><br><span class="line">    <span class="keyword">void</span>        *security;             <span class="comment">/* subjective LSM security */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">user_struct</span> *<span class="title">user</span>;</span>          <span class="comment">/* real user ID subscription */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">user_namespace</span> *<span class="title">user_ns</span>;</span>    <span class="comment">/* user_ns the caps and keyrings are relative to. */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">group_info</span> *<span class="title">group_info</span>;</span>     <span class="comment">/* supplementary groups for euid/fsgid */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">rcu_head</span> <span class="title">rcu</span>;</span>               <span class="comment">/* RCU deletion hook */</span></span><br><span class="line">&#125; __randomize_layout;</span><br></pre></td></tr></table></figure>
+
+<h4 id="进程权限改变"><a href="#进程权限改变" class="headerlink" title="进程权限改变"></a>进程权限改变</h4><p>进程提权主要依靠两个协力完成。</p>
+<ul>
+<li><code>struct cred* prepare_kernel_cred(struct task_struct* daemon)</code>：该函数用以拷贝一个进程的cred结构体，并返回一个新的cred结构体，需要注意的是<code>daemon</code>参数应为<strong>有效的进程描述符地址或NULL</strong>，假如传入的是null，那函数就会返回一个root权限的cred.</li>
+<li><code>int commit_creds(struct cred *new)</code>：该函数用以将一个新的<code>cred</code>结构体应用到进程</li>
+</ul>
+<p>通过commit_creds(prepare_kernel_cred(NULL))这套组合拳就能把用户态进程的cred更新为一个root的cred.</p>
+<p>（也有可能直接溢出改，我猜的，毕竟还没做过题😃）</p>
+<h4 id="内核保护机制"><a href="#内核保护机制" class="headerlink" title="内核保护机制"></a>内核保护机制</h4><p><strong>KASLR</strong>：内核地址随机化，和aslr类似，知道了一个地址再加上一个偏移就能知道基地址了，在没开启KASLR的时候，内核的基地址是0xffffffff81000000</p>
+<p><strong>STACK PROTECTOR</strong>：和canary类似，用以检测是否发生了内核堆栈溢出，如果发生内核堆栈溢出则会产生kernel panic.</p>
+<p><strong>SMAP/SMEP</strong>:smap的作用时阻止内核空间直接访问用户空间的数据，smep用以阻止内核空间执行用户空间的数据。目的是让内核空间和用户空间完全隔开。</p>
+<p>一共有两种绕过（照搬）</p>
+<ul>
+<li>在设计中，为了使隔离的数据进行交换时具有更高的性能，隐性地址共享始终存在（VDSO &amp; VSYSCALL），<strong>用户态进程与内核共享同一块物理内存</strong>，因此通过隐性内存共享可以完整的绕过软件和硬件的隔离保护，这种攻击方式被称之为<code>ret2dir</code>（return-to-direct-mapped memory ）</li>
+<li>Intel下系统根据CR4控制寄存器的第20位标识是否开启SMEP保护（1为开启，0为关闭），若是能够通过kernel ROP改变CR4寄存器的值便能够关闭SMEP保护，完成SMEP-bypass，接下来就能够重新进行ret2usr</li>
+</ul>
+<p><strong>KPTI</strong>：KPTI即<code>内核页表隔离</code>（Kernel page-table isolation），内核空间与用户空间分别使用两组不同的页表集，这对于内核的内存管理产生了根本性的变化（完全没理解）</p>
+<h4 id="LKMs"><a href="#LKMs" class="headerlink" title="LKMs"></a>LKMs</h4><p>可装载内核模块，简称LKMs,顾名思义就是内核中可装载可拆卸的程序，可以提供内核原本不具备的服务又不至于重新更新整个系统的东西，一般的kernelpwn题的漏洞都是出在出题人自己写的lkms上面。</p>
+<ul>
+<li><code>lsmod</code>：列出现有的LKMs</li>
+<li><code>insmod</code>：装载新的LKM（需要root）</li>
+<li><code>rmmod</code>：从内核中移除LKM（需要root）</li>
+</ul>
+<h4 id="内核态函数调用-照搬"><a href="#内核态函数调用-照搬" class="headerlink" title="内核态函数调用(照搬)"></a>内核态函数调用(照搬)</h4><ol>
+<li><code>printf()</code>变更为**<code>printk()</code>**，但需要注意的是<code>printk()</code><strong>不一定会把内容显示到终端上，但一定在内核缓冲区里</strong>，可以通过 <code>dmesg</code> 查看效果。</li>
+<li><code>memcpy()</code>变更为<code>copy_from_user()/copy_to_user()</code><ul>
+<li>copy_from_user() 实现了将用户空间的数据传送到内核空间</li>
+<li>copy_to_user() 实现了将内核空间的数据传送到用户空间</li>
+</ul>
+</li>
+<li><code>malloc()</code>变更为**<code>kmalloc()</code>**，内核态的内存分配函数，和<code>malloc()</code>相似，但使用的是 <code>slab/slub</code> 分配器</li>
+<li><code>free()</code>变更为**<code>kfree()</code>**，同 <code>kmalloc()</code></li>
+</ol>
+<p>对内核的搭建和认识就到这了，下面进入实战阶段</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/02/04/pwnable.tw/" rel="prev" title="">
+      <i class="fa fa-chevron-left"></i> 
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2022/02/10/kernel-babydirver/" rel="next" title="kernel-babydirver">
+      kernel-babydirver <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%86%85%E6%A0%B8pwn"><span class="nav-number">1.</span> <span class="nav-text">内核pwn</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#0x1-%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="nav-number">1.1.</span> <span class="nav-text">0x1 环境搭建</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#0x2-%E5%86%85%E6%A0%B8%E5%88%9D%E7%90%86%E8%A7%A3"><span class="nav-number">1.2.</span> <span class="nav-text">0x2 内核初理解</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E6%A0%B8%E6%98%AF%E4%BB%80%E4%B9%88%E4%B8%9C%E8%A5%BF"><span class="nav-number">1.2.0.1.</span> <span class="nav-text">内核是什么东西</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E6%A0%B8%E5%92%8C%E7%94%A8%E6%88%B7%E6%80%81%E7%9A%84%E5%88%87%E6%8D%A2"><span class="nav-number">1.2.0.2.</span> <span class="nav-text">内核和用户态的切换</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E6%A0%B8%E7%9A%84%E5%88%86%E7%BA%A7%E4%BF%9D%E6%8A%A4%E5%9F%9F"><span class="nav-number">1.2.0.3.</span> <span class="nav-text">内核的分级保护域</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%BF%9B%E7%A8%8B%E7%AE%A1%E7%90%86"><span class="nav-number">1.2.0.4.</span> <span class="nav-text">进程管理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%BF%9B%E7%A8%8B%E6%9D%83%E9%99%90%E6%94%B9%E5%8F%98"><span class="nav-number">1.2.0.5.</span> <span class="nav-text">进程权限改变</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E6%A0%B8%E4%BF%9D%E6%8A%A4%E6%9C%BA%E5%88%B6"><span class="nav-number">1.2.0.6.</span> <span class="nav-text">内核保护机制</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#LKMs"><span class="nav-number">1.2.0.7.</span> <span class="nav-text">LKMs</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E6%A0%B8%E6%80%81%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8-%E7%85%A7%E6%90%AC"><span class="nav-number">1.2.0.8.</span> <span class="nav-text">内核态函数调用(照搬)</span></a></li></ol></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
