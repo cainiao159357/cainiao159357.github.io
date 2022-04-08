@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="kernelpwn slub&#x2F;slab总结一波内核分配内存（堆）的策略，不然做内核题总是半懂不懂的。 内核管理内存页面使用了两种算法，伙伴算法和slub算法 伙伴算法伙伴算法是以页4k为单位管理内存的，也就是申请和释放的最小单位是4k，但是程序多数情况下不会申请这么大的内存，而是比较小的内存，就像用户态的堆一样，所以还需要一个内存管理算法支持这种功能，也就是slub算法 slub像libc申请释放">
+<meta property="og:type" content="article">
+<meta property="og:title" content="slub&#x2F;slab">
+<meta property="og:url" content="http://example.com/2022/04/08/slub-slab/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="kernelpwn slub&#x2F;slab总结一波内核分配内存（堆）的策略，不然做内核题总是半懂不懂的。 内核管理内存页面使用了两种算法，伙伴算法和slub算法 伙伴算法伙伴算法是以页4k为单位管理内存的，也就是申请和释放的最小单位是4k，但是程序多数情况下不会申请这么大的内存，而是比较小的内存，就像用户态的堆一样，所以还需要一个内存管理算法支持这种功能，也就是slub算法 slub像libc申请释放">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://img.lhyerror404.cn/error404/2020-03-22-144151.png">
+<meta property="og:image" content="http://hi.csdn.net/attachment/201111/7/0_1320655427Rtw3.gif">
+<meta property="og:image" content="c:/Users/张鹏/AppData/Roaming/Typora/typora-user-images/image-20220407214835446.png">
+<meta property="og:image" content="c:/Users/张鹏/AppData/Roaming/Typora/typora-user-images/image-20220407220144459.png">
+<meta property="article:published_time" content="2022-04-08T09:20:10.000Z">
+<meta property="article:modified_time" content="2022-04-08T09:20:35.402Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://img.lhyerror404.cn/error404/2020-03-22-144151.png">
+
+<link rel="canonical" href="http://example.com/2022/04/08/slub-slab/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>slub/slab | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/08/slub-slab/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          slub/slab
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-04-08 17:20:10 / 修改时间：17:20:35" itemprop="dateCreated datePublished" datetime="2022-04-08T17:20:10+08:00">2022-04-08</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="kernelpwn-slub-slab"><a href="#kernelpwn-slub-slab" class="headerlink" title="kernelpwn slub/slab"></a>kernelpwn slub/slab</h1><p>总结一波内核分配内存（堆）的策略，不然做内核题总是半懂不懂的。</p>
+<p>内核管理内存页面使用了两种算法，伙伴算法和slub算法</p>
+<h2 id="伙伴算法"><a href="#伙伴算法" class="headerlink" title="伙伴算法"></a>伙伴算法</h2><p>伙伴算法是以页4k为单位管理内存的，也就是申请和释放的最小单位是4k，但是程序多数情况下不会申请这么大的内存，而是比较小的内存，就像用户态的堆一样，所以还需要一个内存管理算法支持这种功能，也就是slub算法</p>
+<h2 id="slub"><a href="#slub" class="headerlink" title="slub"></a>slub</h2><p>像libc申请释放堆块一样，slub也把堆进行进行了分组管理，每一组的大小是2^3,2^4….2^11字节，堆的大小是以8字节递增的，也就是(8,2048),当超过2048的时候就会使用伙伴系统提供的接口直接申请一个完整的页面，还有两个特殊的组96字节和192字节，这些组映射到kmalloc_caches[12]数组中的一个元素</p>
+<p><img src="https://img.lhyerror404.cn/error404/2020-03-22-144151.png" alt="img"></p>
+<p>这是用于slub管理内存的数据结构，可以看见每个kmalloc_caches元素又各种对应一个kmem_cache结构体，这个结构体中又能指向<code>kmem_cache_cpu</code>和<code>kmem_cache_node</code>两个数组，这两个结构体才是slub分配算法的关键</p>
+<p>有一个博客比喻的很好，<code>kmem_cache_node</code>相当于仓库，<code>kmem_cache_cpu</code>是真正用于分配内存的地方，每个kmalloc_caches元素都有自己的<code>kmem_cache_cpu</code>和<code>kmem_cache_node</code>。</p>
+<h3 id="kmem-cache-cpu和keme-cache-node"><a href="#kmem-cache-cpu和keme-cache-node" class="headerlink" title="kmem_cache_cpu和keme_cache_node"></a>kmem_cache_cpu和keme_cache_node</h3><p>slub会根据这个组的大小向伙伴算法申请整数倍4k的内存给kmem_cache_cpu,申请到这块内存叫做slab,其中kmem_cache_cpu.page就指向了slab的首地址，slub会根据这个组的大小把slab切割成很多个小的object,每个object的大小就是这个组的大小，当object还未被申请时候会有八个字节储存下一个object的地址，这样其实这个slab就被切割成大小相等的单向链表了，然后kmem_cache_cpu.freelist指向这个slab的第一个空闲object</p>
+<p><img src="http://hi.csdn.net/attachment/201111/7/0_1320655427Rtw3.gif" alt="img"></p>
+<p>当申请这个组的内存的时候如果这个组的kmem_cache_cpu没有一个slab的时候，slub就会申请一个slab并执行上述操作，然后把第一个obj标记为占用并返回给用户，下图体现了这个操作，申请了一个object以后kmem_cache_cpu就会根据这个object的next指向下一个空闲object。</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220407214835446.png" alt="image-20220407214835446"></p>
+<p>至于为什么说kmem_cache_cpu为什么是内存申请的主要地方现在就很明朗了。</p>
+<p>可是kmem_cache_cpu指向的slab总有用完的时候，当这个slab用完怎么办，这时候就得用上<code>kmem_cache_node</code>这个结构体仓库了，kmem_cache_node有两个指针<code>partial</code>和<code>full</code>指向两个链表，其中partial指向有空闲obj的slab链表，full指向没有空闲的slab链表，如下图</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220407220144459.png" alt="image-20220407220144459"></p>
+<p>当keme_cache_cpu指向的slab用完后就会放到kmem_cache_node.full上面，然后检查keme_cache_partial链表有没有有空闲的slab,如果有的话就会把第一个空闲的obj返回给用户，然后把这个slab给kmem_cache_cpu。</p>
+<p>如果kmem_cache_node.full上面的一个slab的一个obj被释放后这个slab就会移向partial。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这是slub算法的主要策略，不涉及源码解读（因为看不懂），先学着看，以后如果有必要会看看。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/04/08/kernelpwn%E5%88%B7%E9%A2%98%E8%AE%B0%E5%BD%95-md/" rel="prev" title="kernelpwn刷题记录.md">
+      <i class="fa fa-chevron-left"></i> kernelpwn刷题记录.md
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#kernelpwn-slub-slab"><span class="nav-number">1.</span> <span class="nav-text">kernelpwn slub&#x2F;slab</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BC%99%E4%BC%B4%E7%AE%97%E6%B3%95"><span class="nav-number">1.1.</span> <span class="nav-text">伙伴算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#slub"><span class="nav-number">1.2.</span> <span class="nav-text">slub</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#kmem-cache-cpu%E5%92%8Ckeme-cache-node"><span class="nav-number">1.2.1.</span> <span class="nav-text">kmem_cache_cpu和keme_cache_node</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.3.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">28</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
