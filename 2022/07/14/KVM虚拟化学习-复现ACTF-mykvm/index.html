@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="KVM虚拟化学习&amp;复现ACTF mykvm[toc] kvm虚拟化学习对我而言现在学习这个还是比较吃力的，涉及很复杂的一些理论知识，看的云里雾里(多半没看懂)，而且资料也不是很多，看了一两天大概看懂了kvm的整个运行过程，虽然学的很浅，但是在这里记录一下。 kvm概述以及使用kvm是运行在Linux内核中的硬件虚拟化管理模块，用户态的程序可以通过kvm暴露的用户态接口使用硬件虚拟化的功能,">
+<meta property="og:type" content="article">
+<meta property="og:title" content="KVM虚拟化学习&amp;复现ACTF mykvm">
+<meta property="og:url" content="http://example.com/2022/07/14/KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%AD%A6%E4%B9%A0-%E5%A4%8D%E7%8E%B0ACTF-mykvm/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="KVM虚拟化学习&amp;复现ACTF mykvm[toc] kvm虚拟化学习对我而言现在学习这个还是比较吃力的，涉及很复杂的一些理论知识，看的云里雾里(多半没看懂)，而且资料也不是很多，看了一两天大概看懂了kvm的整个运行过程，虽然学的很浅，但是在这里记录一下。 kvm概述以及使用kvm是运行在Linux内核中的硬件虚拟化管理模块，用户态的程序可以通过kvm暴露的用户态接口使用硬件虚拟化的功能,">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-07-14T13:42:19.000Z">
+<meta property="article:modified_time" content="2022-07-14T13:43:04.698Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/07/14/KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%AD%A6%E4%B9%A0-%E5%A4%8D%E7%8E%B0ACTF-mykvm/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>KVM虚拟化学习&复现ACTF mykvm | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/07/14/KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%AD%A6%E4%B9%A0-%E5%A4%8D%E7%8E%B0ACTF-mykvm/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          KVM虚拟化学习&复现ACTF mykvm
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-07-14 21:42:19 / 修改时间：21:43:04" itemprop="dateCreated datePublished" datetime="2022-07-14T21:42:19+08:00">2022-07-14</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="KVM虚拟化学习-amp-复现ACTF-mykvm"><a href="#KVM虚拟化学习-amp-复现ACTF-mykvm" class="headerlink" title="KVM虚拟化学习&amp;复现ACTF mykvm"></a>KVM虚拟化学习&amp;复现ACTF mykvm</h1><p>[toc]</p>
+<h2 id="kvm虚拟化学习"><a href="#kvm虚拟化学习" class="headerlink" title="kvm虚拟化学习"></a>kvm虚拟化学习</h2><p>对我而言现在学习这个还是比较吃力的，涉及很复杂的一些理论知识，看的云里雾里(多半没看懂)，而且资料也不是很多，看了一两天大概看懂了kvm的整个运行过程，虽然学的很浅，但是在这里记录一下。</p>
+<h3 id="kvm概述以及使用"><a href="#kvm概述以及使用" class="headerlink" title="kvm概述以及使用"></a>kvm概述以及使用</h3><p>kvm是运行在Linux内核中的硬件虚拟化管理模块，用户态的程序可以通过kvm暴露的用户态接口使用硬件虚拟化的功能,我们可以通过规定的API以及数据结构完成CPU虚拟化，内存虚拟化以及IO虚拟化,以此模拟完整的虚拟环境。</p>
+<p>先写一段我们想要执行的代码,其中比较重要的是<code>out</code>指令，这个指令就是把al保存的数据发送到dx储存的io端口上去，CPU通常通过读写设备寄存器的方式和设备进行通信，访问设备寄存器的方式一共有两种，一种是内存映射I/O(MMIO)，一种是端口映射I/O(PMIO),MMIO是将设备寄存器直接映射到内存空间上并且拥有独立的地址，CPU可以直接通过读写内存指令即可通信，而PMIO给每个设备分配对应的端口号，然后通过专门的端口操作指令(out/in)和设备通信，而0x3f8则是模拟的一个端口号</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mov al, 1</span><br><span class="line">add al,&#x27;0&#x27;</span><br><span class="line">mov dx, 0x3f8</span><br><span class="line">out dx, al</span><br><span class="line">hlt</span><br></pre></td></tr></table></figure>
+
+<p>然后把这个汇编给编译了再得到二进制数据</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/kvmstudy/test1$ nasm huibian.asm -o huibian</span><br><span class="line">rootzhang@rootzhang-virtual-machine:~/kvmstudy/test1$ hexdump -C huibian</span><br><span class="line">00000000  b0 01 04 30 ba f8 03 ee  f4                       |...0.....|</span><br><span class="line">00000009</span><br></pre></td></tr></table></figure>
+
+<p>然后把这个shellcode存储到一个数据里</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">uint8_t</span> code[]=&#123;</span><br><span class="line">     <span class="number">0xb0</span>,<span class="number">0x01</span>, <span class="number">0x04</span>, <span class="number">0x30</span>, <span class="number">0xba</span>, <span class="number">0xf8</span>, <span class="number">0x03</span>, <span class="number">0xee</span>,<span class="number">0xf4</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接着真正开始利用kvm的接口来创建虚拟机然后运行这段shellcode.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;err.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fcntl.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux/kvm.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdint.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/ioctl.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/mman.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/stat.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> ret;</span><br><span class="line">    <span class="keyword">uint8_t</span> code[]=&#123;</span><br><span class="line">         <span class="number">0xb0</span>,<span class="number">0x01</span>, <span class="number">0x04</span>, <span class="number">0x30</span>, <span class="number">0xba</span>, <span class="number">0xf8</span>, <span class="number">0x03</span>, <span class="number">0xee</span>,<span class="number">0xf4</span></span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="comment">//打开/dev/kvm,获得kvm的句柄</span></span><br><span class="line">    <span class="keyword">int</span> kvm=open(<span class="string">&quot;/dev/kvm&quot;</span>,O_RDWR|O_CLOEXEC);</span><br><span class="line">    <span class="comment">//早起的kvm的API是不稳定的，所以得检查一下版本，如果是</span></span><br><span class="line">    <span class="comment">//12那就没问题</span></span><br><span class="line">    ret=ioctl(kvm,KVM_GET_API_VERSION,<span class="literal">NULL</span>);</span><br><span class="line">    <span class="keyword">if</span>(ret==<span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_GET_API_VERSION get fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span>(ret!=<span class="number">12</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_GET_API_VERSION is not 12&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//创建一个虚拟机(vm),他代表了一个模拟系统相关的所有内容，包括</span></span><br><span class="line">    <span class="comment">//内存和一个或者多个CPU，</span></span><br><span class="line">    <span class="keyword">int</span> vmfd=ioctl(kvm,KVM_CREATE_VM,(<span class="keyword">unsigned</span> <span class="keyword">long</span>)<span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span>(vmfd==<span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_CREATE_VM fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//为vm配置“物理”内存</span></span><br><span class="line">    <span class="keyword">void</span> *mem=mmap(<span class="literal">NULL</span>, <span class="number">0x1000</span>, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, <span class="number">-1</span>, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span>(!mem)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;mmap mem fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">memcpy</span>(mem,code,<span class="keyword">sizeof</span>(code));</span><br><span class="line">    <span class="comment">//这个数据结构规定了客户物理地址和宿主进程的映射关系,是比较重要的</span></span><br><span class="line">    <span class="comment">//其中guest_phys_addr指定了从guest看到的&quot;物理&quot;地址，而userspace_addr</span></span><br><span class="line">    <span class="comment">//是宿主进程的虚拟地址，可以看出这个是个线性映射，把mem映射到guest的0x1000</span></span><br><span class="line">    <span class="comment">//的“物理”地址上，所以mem和guest的0x1000指向到真实物理地址是一模一样的，所以guest修改</span></span><br><span class="line">    <span class="comment">//他的内存是可以影响到宿主进程的，这也是逃逸的漏洞点。</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_userspace_memory_region</span> <span class="title">region</span>=</span>&#123;</span><br><span class="line">        .slot=<span class="number">0</span>,</span><br><span class="line">        .guest_phys_addr=<span class="number">0x1000</span>,</span><br><span class="line">        .memory_size=<span class="number">0x1000</span>,</span><br><span class="line">        .userspace_addr=(<span class="keyword">uint64_t</span>)mem,</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="comment">//然后设置vm的内存区域</span></span><br><span class="line">    ret=ioctl(vmfd,KVM_SET_USER_MEMORY_REGION,&amp;region);</span><br><span class="line">    <span class="keyword">if</span>(ret==<span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_SET_USER_MEMORY_REGION fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//截至目前已经拥有了vm和他所对应的内存，里面包含了代码，要想执行这段代码还得模拟</span></span><br><span class="line">    <span class="comment">//一个虚拟CPU(VCPU),一个虚拟cpu代表了一个模拟CPU的状态，包括处理器寄存器和其他</span></span><br><span class="line">    <span class="comment">//执行状态,kvm提供一个vcpu的句柄</span></span><br><span class="line">    <span class="keyword">int</span> vcpufd=ioctl(vmfd,KVM_CREATE_VCPU,(<span class="keyword">unsigned</span> <span class="keyword">long</span>)<span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span>(vcpufd==<span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_CREATE_VCPU fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//每个vcpu都得关联一个struct kvm_run数据结构，用于在vm和宿主进程(我理解为虚拟机监听器)</span></span><br><span class="line">    <span class="comment">//传递有关cpu的信息，特别是当vmexit的时候，kvm_run讲包含有关他停止的信息，可以根据这个</span></span><br><span class="line">    <span class="comment">//信息做相应的处理操作</span></span><br><span class="line">    <span class="keyword">size_t</span> kvm_run_size=ioctl(kvm,KVM_GET_VCPU_MMAP_SIZE,<span class="literal">NULL</span>);</span><br><span class="line">    <span class="keyword">if</span>(!kvm_run_size)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_GET_VCPU_MMAP_SIZE fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//然后将kvm_run和vcpu关联</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_run</span> *<span class="title">run</span>=</span>mmap(<span class="literal">NULL</span>,kvm_run_size,PROT_READ | PROT_WRITE, MAP_SHARED, vcpufd, <span class="number">0</span>);</span><br><span class="line">    <span class="comment">//在执行代码之前还需要设置vcpu的寄存器的初始状态，寄存器分为标准寄存器和特殊寄存器，标准</span></span><br><span class="line">    <span class="comment">//寄存器指的是通用寄存器以及指针和标志，kvm中采用struct kvm_regs数据结构与其对应，特殊寄存器</span></span><br><span class="line">    <span class="comment">//主要包括段寄存器和控制寄存器,kvm中采用struct kvm_sregs数据结构与其对应</span></span><br><span class="line">    <span class="comment">//特殊寄存器中，我们只需要设置cs寄存器即可</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_sregs</span> <span class="title">sregs</span>;</span></span><br><span class="line">    ret=ioctl(vcpufd,KVM_GET_SREGS,&amp;sregs);</span><br><span class="line">    <span class="keyword">if</span>(ret==<span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_GET_SREGS fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    sregs.cs.base = <span class="number">0</span>;</span><br><span class="line">    sregs.cs.selector = <span class="number">0</span>;</span><br><span class="line">    ret=ioctl(vcpufd,KVM_SET_SREGS,&amp;sregs);</span><br><span class="line">    <span class="keyword">if</span>(ret==<span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_SET_SREGS fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//设置标准寄存器，其中比较重要的是rip和rflags寄存器，rip指向</span></span><br><span class="line">    <span class="comment">//code存放的地址，rflags指定为2</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_regs</span> <span class="title">regs</span>=</span></span><br><span class="line">    &#123;</span><br><span class="line">        .rip=<span class="number">0x1000</span>,</span><br><span class="line">        .rax=<span class="number">1</span>,</span><br><span class="line">        .rflags=<span class="number">0x2</span>,</span><br><span class="line"></span><br><span class="line">    &#125;;</span><br><span class="line">    ret=ioctl(vcpufd,KVM_SET_REGS,&amp;regs);</span><br><span class="line">    <span class="keyword">if</span>(ret==<span class="number">-1</span>)&#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;KVM_SET_REGS fail&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//此时vm拥有了内存和VCPU，我们可以使用KVM_run选项让vcpu来运行自己的</span></span><br><span class="line">    <span class="comment">//code了</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        ret=ioctl(vcpufd,KVM_RUN,<span class="literal">NULL</span>);</span><br><span class="line">        <span class="keyword">if</span>(ret==<span class="number">-1</span>)&#123;</span><br><span class="line">            <span class="built_in">puts</span>(<span class="string">&quot;KVM_RUN fail&quot;</span>);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">switch</span> (run-&gt;exit_reason)</span><br><span class="line">        &#123;</span><br><span class="line">        <span class="keyword">case</span> KVM_EXIT_HLT:</span><br><span class="line">            <span class="built_in">puts</span>(<span class="string">&quot;KVM_EXIT_HLT hahaha&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> KVM_EXIT_IO:</span><br><span class="line">            <span class="keyword">if</span>(</span><br><span class="line">                run-&gt;io.direction==KVM_EXIT_IO_OUT&amp;&amp;</span><br><span class="line">                run-&gt;io.size==<span class="number">1</span>&amp;&amp;</span><br><span class="line">                run-&gt;io.port==<span class="number">0x3f8</span>&amp;&amp;</span><br><span class="line">                run-&gt;io.count==<span class="number">1</span></span><br><span class="line">            )&#123;</span><br><span class="line">                <span class="built_in">putchar</span>(*(( (<span class="keyword">char</span> *)run)+run-&gt;io.data_offset));</span><br><span class="line">            &#125;<span class="keyword">else</span>&#123;</span><br><span class="line">                <span class="built_in">puts</span>(<span class="string">&quot;KVM_EXIT_IO fail&quot;</span>);</span><br><span class="line">                <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>结果</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/kvmstudy/test1$ ./kvmpwn </span><br><span class="line">1KVM_EXIT_HLT hahaha</span><br></pre></td></tr></table></figure>
+
+<p>符合预期</p>
+<p>验证一下guest被分配的内存是否是宿主进程给他的</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mov al, 1</span><br><span class="line">add al,&#x27;0&#x27;</span><br><span class="line">mov dx, 0x3f8</span><br><span class="line">out dx, al</span><br><span class="line">mov al,0x20</span><br><span class="line">mov word [0x1000+0x20],&#x27;2&#x27;</span><br><span class="line">hlt</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> KVM_EXIT_HLT:</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;%s\n&quot;</span>,((<span class="keyword">char</span> *)mem)+<span class="number">0x20</span>);</span><br><span class="line">            <span class="built_in">puts</span>(<span class="string">&quot;KVM_EXIT_HLT hahaha&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br></pre></td></tr></table></figure>
+
+<p>结果</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/kvmstudy/test1$ ./kvmpwn</span><br><span class="line">12</span><br><span class="line">KVM_EXIT_HLT hahaha</span><br></pre></td></tr></table></figure>
+
+<p>符合预期</p>
+<h3 id="kvm深入学习"><a href="#kvm深入学习" class="headerlink" title="kvm深入学习"></a>kvm深入学习</h3><p>这只是比较简单的kvm使用方法，guest并没有开虚拟内存映射，直接使用的是他的”物理地址”，所以比较好理解，我找见了conf2020的一道kvm源码，他整了很多花活，接下来的任务就是搞懂这个源代码</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/stat.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fcntl.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/mman.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux/kvm.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/* CR0 bits */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_PE 1u</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_MP (1U &lt;&lt; 1)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_EM (1U &lt;&lt; 2)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_TS (1U &lt;&lt; 3)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_ET (1U &lt;&lt; 4)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_NE (1U &lt;&lt; 5)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_WP (1U &lt;&lt; 16)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_AM (1U &lt;&lt; 18)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_NW (1U &lt;&lt; 29)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_CD (1U &lt;&lt; 30)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR0_PG (1U &lt;&lt; 31)</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CR4_PAE (1U &lt;&lt; 5)</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> EFER_LME (1U &lt;&lt; 8) <span class="comment">// Long mode enable</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> EFER_LMA (1U &lt;&lt; 10) <span class="comment">// long mode active</span></span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">read_n</span><span class="params">(<span class="keyword">int</span> count, <span class="keyword">void</span> *dst)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> to_read = count;</span><br><span class="line">    <span class="keyword">char</span> *dst_ptr = dst;</span><br><span class="line">    <span class="keyword">while</span> (to_read &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">int</span> read_res = read(<span class="number">0</span>, dst_ptr, to_read);</span><br><span class="line">        to_read -= read_res;</span><br><span class="line">        dst_ptr += read_res;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">char</span> guest_mem[<span class="number">0x8000</span>];</span><br><span class="line"></span><br><span class="line">    <span class="built_in">memset</span>(&amp;guest_mem, <span class="number">0</span>, <span class="number">0x8000</span>);</span><br><span class="line">    <span class="keyword">char</span> *aligned_guest_mem = guest_mem + (<span class="number">4096</span> - guest_mem % <span class="number">4096</span>);</span><br><span class="line"></span><br><span class="line">    uint code_size = <span class="number">-1</span>;</span><br><span class="line">    read_n(<span class="keyword">sizeof</span>(uint), code_size);</span><br><span class="line">    <span class="keyword">if</span> (code_size &gt; <span class="number">0x4000</span>) &#123;</span><br><span class="line">        <span class="built_in">puts</span>(<span class="string">&quot;\n[init] hold your horses&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    read_n(code_size, aligned_guest_mem);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">int</span> kvm_fd = open(<span class="string">&quot;/dev/kvm&quot;</span>, O_CLOEXEC|O_RDWR);</span><br><span class="line"></span><br><span class="line">    uint vm_fd = ioctl(kvm_fd, KVM_CREATE_VM, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_userspace_memory_region</span> <span class="title">region</span> =</span> &#123;</span><br><span class="line">        .slot = <span class="number">0</span>,</span><br><span class="line">        .flags = <span class="number">0</span>,</span><br><span class="line">        .guest_phys_addr = <span class="number">0</span>,</span><br><span class="line">        .memory_size = <span class="number">0x8000</span>,</span><br><span class="line">        .userspace_addr = aligned_guest_mem</span><br><span class="line">    &#125;;</span><br><span class="line">    ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION, &amp;region);</span><br><span class="line">    </span><br><span class="line">    </span><br><span class="line">    <span class="keyword">int</span> vcpu_fd = ioctl(vm_fd, KVM_CREATE_VCPU, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> vcpu_mmap_size = ioctl(kvm_fd, KVM_GET_VCPU_MMAP_SIZE, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">char</span> *run_mem = mmap(<span class="literal">NULL</span>, vcpu_mmap_size, PROT_READ|PROT_WRITE, MAP_SHARED, vcpu_fd, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_regs</span> <span class="title">guest_regs</span>;</span></span><br><span class="line">    <span class="built_in">memset</span>(&amp;guest_regs, <span class="number">0</span>, <span class="keyword">sizeof</span>(guest_regs));</span><br><span class="line">    guest_regs.rsp = <span class="number">0xff0</span>;</span><br><span class="line">    guest_regs.rflags = <span class="number">2</span>; <span class="comment">// required</span></span><br><span class="line">    ioctl(vcpu_fd, KVM_SET_REGS, &amp;guest_regs);</span><br><span class="line"></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_sregs</span> <span class="title">guest_sregs</span>;</span></span><br><span class="line">    ioctl(vcpu_fd, KVM_GET_SREGS, &amp;guest_sregs);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Setup paging long mode.</span></span><br><span class="line">    guest_sregs.cr0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG;</span><br><span class="line">    guest_sregs.cr4 = CR4_PAE;</span><br><span class="line">    guest_sregs.efer = EFER_LMA | EFER_LME;</span><br><span class="line">    guest_sregs.cr3 = <span class="number">0x4000</span>;</span><br><span class="line">    (__u64*)(aligned_guest_mem + <span class="number">0x4000</span>) = <span class="number">0x5003</span>; <span class="comment">// P4 Table[0]</span></span><br><span class="line">    (__u64*)(aligned_guest_mem + <span class="number">0x5000</span>) = <span class="number">0x6003</span>; <span class="comment">// P3 Table[0]</span></span><br><span class="line">    (__u64*)(aligned_guest_mem + <span class="number">0x6000</span>) = <span class="number">0x7003</span>; <span class="comment">// P2 Table[0]</span></span><br><span class="line">    (__u64*)(aligned_guest_mem + <span class="number">0x7000</span>) = <span class="number">0x3</span>;    <span class="comment">// P1 Table[0]</span></span><br><span class="line">    (__u64*)(aligned_guest_mem + <span class="number">0x7008</span>) = <span class="number">0x1003</span>; <span class="comment">// P1 Table[1]</span></span><br><span class="line">    (__u64*)(aligned_guest_mem + <span class="number">0x7010</span>) = <span class="number">0x2003</span>; <span class="comment">// P1 Table[2]</span></span><br><span class="line">    (__u64*)(aligned_guest_mem + <span class="number">0x7018</span>) = <span class="number">0x3003</span>; <span class="comment">// P1 Table[3]</span></span><br><span class="line">    <span class="comment">// meaning 0x0, 0x1000, 0x2000, 0x3000 are physical pages</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Setup segments</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_segment</span> <span class="title">seg</span> =</span> &#123;</span><br><span class="line">        .base = <span class="number">0</span>,</span><br><span class="line">        .limit = <span class="number">0xffffffff</span>,</span><br><span class="line">        .selector = <span class="number">1</span> &lt;&lt; <span class="number">3</span>,</span><br><span class="line">        .present = <span class="number">1</span>,</span><br><span class="line">        .type = <span class="number">11</span>, <span class="comment">/* Code: execute, read, accessed */</span></span><br><span class="line">        .dpl = <span class="number">0</span>,</span><br><span class="line">        .db = <span class="number">0</span>,</span><br><span class="line">        .s = <span class="number">1</span>, <span class="comment">/* Code/data */</span></span><br><span class="line">        .l = <span class="number">1</span>,</span><br><span class="line">        .g = <span class="number">1</span>, <span class="comment">/* 4KB granularity */</span></span><br><span class="line">    &#125;;</span><br><span class="line">    sregs-&gt;cs = seg;</span><br><span class="line">    </span><br><span class="line">	seg.type = <span class="number">3</span>; <span class="comment">/* Data: read/write, accessed */</span></span><br><span class="line">	seg.selector = <span class="number">2</span> &lt;&lt; <span class="number">3</span>;</span><br><span class="line">	sregs-&gt;ds = sregs-&gt;es = sregs-&gt;fs = sregs-&gt;gs = sregs-&gt;ss = seg;</span><br><span class="line"></span><br><span class="line">    ioctl(vcpu_fd, KVM_SET_SREGS, &amp;guest_sregs);</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        ioctl(vcpu_fd, KVM_RUN, <span class="number">0</span>);</span><br><span class="line">        exit_reason = run_mem-&gt;exit_reason;</span><br><span class="line">        <span class="keyword">if</span> (exit_reason == KVM_EXIT_HLT || exit_reason == KVM_EXIT_SHUTDOWN)</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">if</span> (exit_reason == KVM_EXIT_IO) &#123;</span><br><span class="line">            <span class="keyword">if</span> (run_mem-&gt;io.direction == KVM_EXIT_IO_OUT &amp;&amp; run_mem-&gt;io.port == <span class="number">0x3f8</span>) &#123;</span><br><span class="line">                <span class="built_in">printf</span>(<span class="string">&quot;%.*s&quot;</span>, </span><br><span class="line">                    run_mem-&gt;io.count * run_mem-&gt;io.size,</span><br><span class="line">                    run_mem-&gt;request_interrupt_window + run_mem-&gt;io.data_offset);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;\n[loop] exit reason: %d\n&quot;</span>, exit_reason);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">puts</span>(<span class="string">&quot;\n[loop] goodbye!&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其中没见过的有这几处,看着就勾八难。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">   guest_sregs.cr0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG;</span><br><span class="line">   guest_sregs.cr4 = CR4_PAE;</span><br><span class="line">   guest_sregs.efer = EFER_LMA | EFER_LME;</span><br><span class="line">   guest_sregs.cr3 = <span class="number">0x4000</span>;</span><br><span class="line">   (__u64*)(aligned_guest_mem + <span class="number">0x4000</span>) = <span class="number">0x5003</span>; <span class="comment">// P4 Table[0]</span></span><br><span class="line">   (__u64*)(aligned_guest_mem + <span class="number">0x5000</span>) = <span class="number">0x6003</span>; <span class="comment">// P3 Table[0]</span></span><br><span class="line">   (__u64*)(aligned_guest_mem + <span class="number">0x6000</span>) = <span class="number">0x7003</span>; <span class="comment">// P2 Table[0]</span></span><br><span class="line">   (__u64*)(aligned_guest_mem + <span class="number">0x7000</span>) = <span class="number">0x3</span>;    <span class="comment">// P1 Table[0]</span></span><br><span class="line">   (__u64*)(aligned_guest_mem + <span class="number">0x7008</span>) = <span class="number">0x1003</span>; <span class="comment">// P1 Table[1]</span></span><br><span class="line">   (__u64*)(aligned_guest_mem + <span class="number">0x7010</span>) = <span class="number">0x2003</span>; <span class="comment">// P1 Table[2]</span></span><br><span class="line">   (__u64*)(aligned_guest_mem + <span class="number">0x7018</span>) = <span class="number">0x3003</span>; <span class="comment">// P1 Table[3]</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">   <span class="class"><span class="keyword">struct</span> <span class="title">kvm_segment</span> <span class="title">seg</span> =</span> &#123;</span><br><span class="line">       .base = <span class="number">0</span>,</span><br><span class="line">       .limit = <span class="number">0xffffffff</span>,</span><br><span class="line">       .selector = <span class="number">1</span> &lt;&lt; <span class="number">3</span>,</span><br><span class="line">       .present = <span class="number">1</span>,</span><br><span class="line">       .type = <span class="number">11</span>, <span class="comment">/* Code: execute, read, accessed */</span></span><br><span class="line">       .dpl = <span class="number">0</span>,</span><br><span class="line">       .db = <span class="number">0</span>,</span><br><span class="line">       .s = <span class="number">1</span>, <span class="comment">/* Code/data */</span></span><br><span class="line">       .l = <span class="number">1</span>,</span><br><span class="line">       .g = <span class="number">1</span>, <span class="comment">/* 4KB granularity */</span></span><br><span class="line">   &#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">   sregs-&gt;cs = seg;</span><br><span class="line">   </span><br><span class="line">seg.type = <span class="number">3</span>; <span class="comment">/* Data: read/write, accessed */</span></span><br><span class="line">seg.selector = <span class="number">2</span> &lt;&lt; <span class="number">3</span>;</span><br><span class="line">sregs-&gt;ds = sregs-&gt;es = sregs-&gt;fs = sregs-&gt;gs = sregs-&gt;ss = seg;</span><br><span class="line"></span><br><span class="line">   ioctl(vcpu_fd, KVM_SET_SREGS, &amp;guest_sregs);</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/06/05/ret2dir-KPTI/" rel="prev" title="ret2dir&KPTI">
+      <i class="fa fa-chevron-left"></i> ret2dir&KPTI
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%AD%A6%E4%B9%A0-amp-%E5%A4%8D%E7%8E%B0ACTF-mykvm"><span class="nav-number">1.</span> <span class="nav-text">KVM虚拟化学习&amp;复现ACTF mykvm</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#kvm%E8%99%9A%E6%8B%9F%E5%8C%96%E5%AD%A6%E4%B9%A0"><span class="nav-number">1.1.</span> <span class="nav-text">kvm虚拟化学习</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#kvm%E6%A6%82%E8%BF%B0%E4%BB%A5%E5%8F%8A%E4%BD%BF%E7%94%A8"><span class="nav-number">1.1.1.</span> <span class="nav-text">kvm概述以及使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#kvm%E6%B7%B1%E5%85%A5%E5%AD%A6%E4%B9%A0"><span class="nav-number">1.1.2.</span> <span class="nav-text">kvm深入学习</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">34</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
