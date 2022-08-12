@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言提供了del,add,edit，其中有比较裸的uaf,edit可以编辑前八个字节,但是没有泄露地址的功能，在比赛期间我采用seq_operations的start指针来控制程序流，kernel的地址随机化只有9位，所以采用硬爆的策略打远程，可惜脸黑，爆了两个小时，到比赛结束还是没有爆出来。虽有一定可行性但是正解肯定不是这样，官方解出来看了看发现非常有含金量，遂复现一波。 相关内核知识学习进程l">
+<meta property="og:type" content="article">
+<meta property="og:title" content="蓝帽杯半决赛 Smurfs复现">
+<meta property="og:url" content="http://example.com/2022/08/12/%E8%93%9D%E5%B8%BD%E6%9D%AF%E5%8D%8A%E5%86%B3%E8%B5%9B-Smurfs%E5%A4%8D%E7%8E%B0/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="前言提供了del,add,edit，其中有比较裸的uaf,edit可以编辑前八个字节,但是没有泄露地址的功能，在比赛期间我采用seq_operations的start指针来控制程序流，kernel的地址随机化只有9位，所以采用硬爆的策略打远程，可惜脸黑，爆了两个小时，到比赛结束还是没有爆出来。虽有一定可行性但是正解肯定不是这样，官方解出来看了看发现非常有含金量，遂复现一波。 相关内核知识学习进程l">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="c:/Users/张鹏/AppData/Roaming/Typora/typora-user-images/image-20220812195333645.png">
+<meta property="og:image" content="https://ask.qcloudimg.com/http-save/4069933/9r91dw9haq.jpeg?imageView2/2/w/1620">
+<meta property="og:image" content="https://ask.qcloudimg.com/http-save/4069933/4icmuda124.jpeg?imageView2/2/w/1620">
+<meta property="og:image" content="https://ask.qcloudimg.com/http-save/yehe-1878670/czt9jkhxcl.png?imageView2/2/w/1620">
+<meta property="article:published_time" content="2022-08-12T13:57:21.000Z">
+<meta property="article:modified_time" content="2022-08-12T13:57:53.942Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="c:/Users/张鹏/AppData/Roaming/Typora/typora-user-images/image-20220812195333645.png">
+
+<link rel="canonical" href="http://example.com/2022/08/12/%E8%93%9D%E5%B8%BD%E6%9D%AF%E5%8D%8A%E5%86%B3%E8%B5%9B-Smurfs%E5%A4%8D%E7%8E%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>蓝帽杯半决赛 Smurfs复现 | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/08/12/%E8%93%9D%E5%B8%BD%E6%9D%AF%E5%8D%8A%E5%86%B3%E8%B5%9B-Smurfs%E5%A4%8D%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          蓝帽杯半决赛 Smurfs复现
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-08-12 21:57:21 / 修改时间：21:57:53" itemprop="dateCreated datePublished" datetime="2022-08-12T21:57:21+08:00">2022-08-12</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>提供了del,add,edit，其中有比较裸的uaf,edit可以编辑前八个字节,但是没有泄露地址的功能，在比赛期间我采用<code>seq_operations</code>的<code>start</code>指针来控制程序流，kernel的地址随机化只有9位，所以采用硬爆的策略打远程，可惜脸黑，爆了两个小时，到比赛结束还是没有爆出来。虽有一定可行性但是正解肯定不是这样，官方解出来看了看发现非常有含金量，遂复现一波。</p>
+<h2 id="相关内核知识学习"><a href="#相关内核知识学习" class="headerlink" title="相关内核知识学习"></a>相关内核知识学习</h2><h3 id="进程ldt"><a href="#进程ldt" class="headerlink" title="进程ldt"></a>进程ldt</h3><p>虽然题目的利用思路和这个关系不是很大，但看都看了就记录一下。</p>
+<p>介绍LDT就不得不介绍GDT了，简而言之，GDT是全局描述符表，而LDT是局部描述符表，在kvm的学习中接触过GDT,但是当时不理解为什么加了这个东西为什么就可以实现保护了，在询问<code>Alex</code>学长一波后终于搞懂，他是怎么实现内存保护以及进程位隔离的了。</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220812195333645.png" alt="image-20220812195333645"></p>
+<p>一个cpu有一个全局描述符表GDT，GDT相当于一个数组，每一个元素就是一个段描述符，一个段描述符就记录这个段的一些信息，比如段的基地址段的大小之类的，这个数组的地址存储在寄存器<code>GDTR</code>中，然后在段寄存器中就不会记录段的具体信息，而是记录一个段选择子，通过这个段选择子完成对某一个段描述符的索引</p>
+<p><img src="https://ask.qcloudimg.com/http-save/4069933/9r91dw9haq.jpeg?imageView2/2/w/1620" alt="img"></p>
+<p>段选择子包括三部分，描述索引符，TL,RPL，其中描述索引符就是索引段描述符的，TL有两种可能，0代表在GDT中寻找，1代表在LDT中寻找。</p>
+<p>LDT是在保护模式下实现进程间隔离的重要的机制，每个LDT都记录一个进程的段的信息，包括cs,ds,ss之类的，也是由段描述符组成的数组，他是一段内存，也可以看做一个段，所以可以在GDT中用一个描述符去记录他，也有一个寄存器LDTR，不过他不是记录LDT的基地址，而是一个选择子，当段寄存器的TL位是1的话，代表就是LDT选择，CPU会根据LDTR作为一个索引去GDT表中找描述符，找见的描述符就是对应一个LDT地址，然后再用对应的段寄存器的index找到对应的段描述符，可见，进程之间的LDTR不一样，他们的LDT就不一样，段寄存器就不一样，进程间就隔离了，比较形象的描述如下如图。</p>
+<p><img src="https://ask.qcloudimg.com/http-save/4069933/4icmuda124.jpeg?imageView2/2/w/1620" alt="img"></p>
+<p><img src="https://ask.qcloudimg.com/http-save/yehe-1878670/czt9jkhxcl.png?imageView2/2/w/1620" alt="img"></p>
+<h3 id="modify-ldt-系统调用"><a href="#modify-ldt-系统调用" class="headerlink" title="modify_ldt 系统调用"></a>modify_ldt 系统调用</h3><h4 id="ldt-struct"><a href="#ldt-struct" class="headerlink" title="ldt_struct"></a>ldt_struct</h4><p>该结构体是0x20大小的，然后前八个字节是一个指针，通过uaf我们得到这个结构体，然后通过edit可以控制前八个字节，也就是控制<code>entries</code>指针。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">ldt_struct</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">desc_struct</span>    *<span class="title">entries</span>;</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>        nr_entries;</span><br><span class="line">    <span class="keyword">int</span>            slot;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>其中<code> struct desc_struct</code>就是一个段描述符</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">desc_struct</span> &#123;</span></span><br><span class="line">    u16    limit0;</span><br><span class="line">    u16    base0;</span><br><span class="line">    u16    base1: <span class="number">8</span>, type: <span class="number">4</span>, s: <span class="number">1</span>, dpl: <span class="number">2</span>, p: <span class="number">1</span>;</span><br><span class="line">    u16    limit1: <span class="number">4</span>, avl: <span class="number">1</span>, l: <span class="number">1</span>, d: <span class="number">1</span>, g: <span class="number">1</span>, base2: <span class="number">8</span>;</span><br><span class="line">&#125; __attribute__((packed));</span><br></pre></td></tr></table></figure>
+
+<h4 id="moddify-ldt系统调用"><a href="#moddify-ldt系统调用" class="headerlink" title="moddify_ldt系统调用"></a>moddify_ldt系统调用</h4><p>可以通过linux提供的<code>modity_ldt</code>来获取或者修改当前进程的LDT</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">SYSCALL_DEFINE3(modify_ldt, <span class="keyword">int</span> , func , <span class="keyword">void</span> __user * , ptr ,</span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> , bytecount)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">int</span> ret = -ENOSYS;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">switch</span> (func) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">0</span>:</span><br><span class="line">        ret = read_ldt(ptr, bytecount);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">1</span>:</span><br><span class="line">        ret = write_ldt(ptr, bytecount, <span class="number">1</span>);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">2</span>:</span><br><span class="line">        ret = read_default_ldt(ptr, bytecount);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">0x11</span>:</span><br><span class="line">        ret = write_ldt(ptr, bytecount, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span>)ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>moddify_ldt系统调用一共提供了四个功能，参数有三个，fun,ptr,bytecount,<code>ptr</code>是我们传入的结构体指针，结构体为<code>user_desc</code></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">user_desc</span> &#123;</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  entry_number;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  base_addr;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  limit;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  seg_32bit:<span class="number">1</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  contents:<span class="number">2</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  read_exec_only:<span class="number">1</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  limit_in_pages:<span class="number">1</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  seg_not_present:<span class="number">1</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span>  useable:<span class="number">1</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><strong>read_ldt</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">read_ldt</span><span class="params">(<span class="keyword">void</span> __user *ptr, <span class="keyword">unsigned</span> <span class="keyword">long</span> bytecount)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span> *<span class="title">mm</span> =</span> current-&gt;mm;</span><br><span class="line"> <span class="keyword">unsigned</span> <span class="keyword">long</span> entries_size;</span><br><span class="line"> <span class="keyword">int</span> retval;</span><br><span class="line"></span><br><span class="line"> down_read(&amp;mm-&gt;context.ldt_usr_sem);</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> (!mm-&gt;context.ldt) &#123;</span><br><span class="line">  retval = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">goto</span> out_unlock;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> (bytecount &gt; LDT_ENTRY_SIZE * LDT_ENTRIES)</span><br><span class="line">  bytecount = LDT_ENTRY_SIZE * LDT_ENTRIES;</span><br><span class="line"></span><br><span class="line"> entries_size = mm-&gt;context.ldt-&gt;nr_entries * LDT_ENTRY_SIZE;</span><br><span class="line"> <span class="keyword">if</span> (entries_size &gt; bytecount)</span><br><span class="line">  entries_size = bytecount;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> (copy_to_user(ptr, mm-&gt;context.ldt-&gt;entries, entries_size)) &#123;</span><br><span class="line">  retval = -EFAULT;</span><br><span class="line">  <span class="keyword">goto</span> out_unlock;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> (entries_size != bytecount) &#123;</span><br><span class="line">  <span class="comment">/* Zero-fill the rest and pretend we read bytecount bytes. */</span></span><br><span class="line">  <span class="keyword">if</span> (clear_user(ptr + entries_size, bytecount - entries_size)) &#123;</span><br><span class="line">   retval = -EFAULT;</span><br><span class="line">   <span class="keyword">goto</span> out_unlock;</span><br><span class="line">  &#125;</span><br><span class="line"> &#125;</span><br><span class="line"> retval = bytecount;</span><br><span class="line"></span><br><span class="line">out_unlock:</span><br><span class="line"> up_read(&amp;mm-&gt;context.ldt_usr_sem);</span><br><span class="line"> <span class="keyword">return</span> retval;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>函数会使用<code>copy_to_user</code>把ldt-&gt;entires的值拷贝到传入的<code>ptr</code>中，就是把这个进程的LDT拷贝到<code>ptr</code>中，如果拷贝不成功，那就会返回-1.我们可以检查返回值判断是否读取成功，也就是可以爆破出heap或者kernel地址。</p>
+<p><strong>write_ldt</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">write_ldt</span><span class="params">(<span class="keyword">void</span> __user *ptr, <span class="keyword">unsigned</span> <span class="keyword">long</span> bytecount, <span class="keyword">int</span> oldmode)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span> *<span class="title">mm</span> =</span> current-&gt;mm;</span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">ldt_struct</span> *<span class="title">new_ldt</span>, *<span class="title">old_ldt</span>;</span></span><br><span class="line"> <span class="keyword">unsigned</span> <span class="keyword">int</span> old_nr_entries, new_nr_entries;</span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">user_desc</span> <span class="title">ldt_info</span>;</span></span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">desc_struct</span> <span class="title">ldt</span>;</span></span><br><span class="line"> <span class="keyword">int</span> error;</span><br><span class="line"></span><br><span class="line"> error = -EINVAL;</span><br><span class="line"> <span class="keyword">if</span> (bytecount != <span class="keyword">sizeof</span>(ldt_info))</span><br><span class="line">  <span class="keyword">goto</span> out;</span><br><span class="line"> error = -EFAULT;</span><br><span class="line"> <span class="keyword">if</span> (copy_from_user(&amp;ldt_info, ptr, <span class="keyword">sizeof</span>(ldt_info)))</span><br><span class="line">  <span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line"> error = -EINVAL;</span><br><span class="line"> <span class="keyword">if</span> (ldt_info.entry_number &gt;= LDT_ENTRIES)</span><br><span class="line">  <span class="keyword">goto</span> out;</span><br><span class="line"> <span class="keyword">if</span> (ldt_info.contents == <span class="number">3</span>) &#123;</span><br><span class="line">  <span class="keyword">if</span> (oldmode)</span><br><span class="line">   <span class="keyword">goto</span> out;</span><br><span class="line">  <span class="keyword">if</span> (ldt_info.seg_not_present == <span class="number">0</span>)</span><br><span class="line">   <span class="keyword">goto</span> out;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> ((oldmode &amp;&amp; !ldt_info.base_addr &amp;&amp; !ldt_info.limit) ||</span><br><span class="line">     LDT_empty(&amp;ldt_info)) &#123;</span><br><span class="line">  <span class="comment">/* The user wants to clear the entry. */</span></span><br><span class="line">  <span class="built_in">memset</span>(&amp;ldt, <span class="number">0</span>, <span class="keyword">sizeof</span>(ldt));</span><br><span class="line"> &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">  <span class="keyword">if</span> (!ldt_info.seg_32bit &amp;&amp; !allow_16bit_segments()) &#123;</span><br><span class="line">   error = -EINVAL;</span><br><span class="line">   <span class="keyword">goto</span> out;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  fill_ldt(&amp;ldt, &amp;ldt_info);</span><br><span class="line">  <span class="keyword">if</span> (oldmode)</span><br><span class="line">   ldt.avl = <span class="number">0</span>;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> (down_write_killable(&amp;mm-&gt;context.ldt_usr_sem))</span><br><span class="line">  <span class="keyword">return</span> -EINTR;</span><br><span class="line"></span><br><span class="line"> old_ldt       = mm-&gt;context.ldt;</span><br><span class="line"> old_nr_entries = old_ldt ? old_ldt-&gt;nr_entries : <span class="number">0</span>;</span><br><span class="line"> new_nr_entries = max(ldt_info.entry_number + <span class="number">1</span>, old_nr_entries);</span><br><span class="line"></span><br><span class="line"> error = -ENOMEM;</span><br><span class="line"> new_ldt = alloc_ldt_struct(new_nr_entries);</span><br><span class="line"> <span class="keyword">if</span> (!new_ldt)</span><br><span class="line">  <span class="keyword">goto</span> out_unlock;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> (old_ldt)</span><br><span class="line">  <span class="built_in">memcpy</span>(new_ldt-&gt;entries, old_ldt-&gt;entries, old_nr_entries * LDT_ENTRY_SIZE);</span><br><span class="line"></span><br><span class="line"> new_ldt-&gt;entries[ldt_info.entry_number] = ldt;</span><br><span class="line"> finalize_ldt_struct(new_ldt);</span><br><span class="line"></span><br><span class="line"> <span class="comment">/*</span></span><br><span class="line"><span class="comment">  * If we are using PTI, map the new LDT into the userspace pagetables.</span></span><br><span class="line"><span class="comment">  * If there is already an LDT, use the other slot so that other CPUs</span></span><br><span class="line"><span class="comment">  * will continue to use the old LDT until install_ldt() switches</span></span><br><span class="line"><span class="comment">  * them over to the new LDT.</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"> error = map_ldt_struct(mm, new_ldt, old_ldt ? !old_ldt-&gt;slot : <span class="number">0</span>);</span><br><span class="line"> <span class="keyword">if</span> (error) &#123;</span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">   * This only can fail for the first LDT setup. If an LDT is</span></span><br><span class="line"><span class="comment">   * already installed then the PTE page is already</span></span><br><span class="line"><span class="comment">   * populated. Mop up a half populated page table.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="keyword">if</span> (!WARN_ON_ONCE(old_ldt))</span><br><span class="line">   free_ldt_pgtables(mm);</span><br><span class="line">  free_ldt_struct(new_ldt);</span><br><span class="line">  <span class="keyword">goto</span> out_unlock;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> install_ldt(mm, new_ldt);</span><br><span class="line"> unmap_ldt_struct(mm, old_ldt);</span><br><span class="line"> free_ldt_struct(old_ldt);</span><br><span class="line"> error = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">out_unlock:</span><br><span class="line"> up_write(&amp;mm-&gt;context.ldt_usr_sem);</span><br><span class="line">out:</span><br><span class="line"> <span class="keyword">return</span> error;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以通过这个函数重新申请一个ldt结构体绑定到进程上，我们就可以利用uaf控制这个结构题，然后就可以控制其中的<code>entries</code>了。</p>
+<p>这个函数处理可以控制ldt以外还可以完成任意写，观察下面的代码</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (old_ldt)</span><br><span class="line">    <span class="built_in">memcpy</span>(new_ldt-&gt;entries, old_ldt-&gt;entries, old_nr_entries * LDT_ENTRY_SIZE);</span><br><span class="line"></span><br><span class="line">new_ldt-&gt;entries[ldt_info.entry_number] = ldt;</span><br></pre></td></tr></table></figure>
+
+<p>在<code>memcpy</code>函数中，拷贝的大小是<code>old_nr_entries * LDT_ENTRY_SIZE</code>,其中<code>old_nr_entries</code>的上限和<code>LDT_ENTRY_SIZE</code>大小都有定义</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> LDT_ENTRIES    8192</span></span><br><span class="line"><span class="comment">/* The size of each LDT entry. */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> LDT_ENTRY_SIZE    8</span></span><br></pre></td></tr></table></figure>
+
+<p>可见还是比较大的，然后还没有加锁，那就可以在<code>memcpy</code>拷贝的期间条件竞争修改<code>entries</code>字段，ldt也是我们传入的值，再执行<code>new_ldt-&gt;entries[ldt_info.entry_number] = ldt;</code>就可以完成任意地址写八字节了。</p>
+<h2 id="解法一-遍历内存泄露地址修改进程cred完成提权"><a href="#解法一-遍历内存泄露地址修改进程cred完成提权" class="headerlink" title="解法一 遍历内存泄露地址修改进程cred完成提权"></a>解法一 遍历内存泄露地址修改进程cred完成提权</h2><h2 id="解法二-遍历内存泄露地址劫持seq-operations-rop提权"><a href="#解法二-遍历内存泄露地址劫持seq-operations-rop提权" class="headerlink" title="解法二 遍历内存泄露地址劫持seq_operations+rop提权"></a>解法二 遍历内存泄露地址劫持seq_operations+rop提权</h2>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/08/09/mit6-s081/" rel="prev" title="mit6.s081">
+      <i class="fa fa-chevron-left"></i> mit6.s081
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B8%E5%85%B3%E5%86%85%E6%A0%B8%E7%9F%A5%E8%AF%86%E5%AD%A6%E4%B9%A0"><span class="nav-number">2.</span> <span class="nav-text">相关内核知识学习</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%9B%E7%A8%8Bldt"><span class="nav-number">2.1.</span> <span class="nav-text">进程ldt</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#modify-ldt-%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-number">2.2.</span> <span class="nav-text">modify_ldt 系统调用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#ldt-struct"><span class="nav-number">2.2.1.</span> <span class="nav-text">ldt_struct</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#moddify-ldt%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-number">2.2.2.</span> <span class="nav-text">moddify_ldt系统调用</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E6%B3%95%E4%B8%80-%E9%81%8D%E5%8E%86%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2%E5%9C%B0%E5%9D%80%E4%BF%AE%E6%94%B9%E8%BF%9B%E7%A8%8Bcred%E5%AE%8C%E6%88%90%E6%8F%90%E6%9D%83"><span class="nav-number">3.</span> <span class="nav-text">解法一 遍历内存泄露地址修改进程cred完成提权</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E6%B3%95%E4%BA%8C-%E9%81%8D%E5%8E%86%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2%E5%9C%B0%E5%9D%80%E5%8A%AB%E6%8C%81seq-operations-rop%E6%8F%90%E6%9D%83"><span class="nav-number">4.</span> <span class="nav-text">解法二 遍历内存泄露地址劫持seq_operations+rop提权</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">37</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
