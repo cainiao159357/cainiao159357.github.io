@@ -147,6 +147,134 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/09/08/makefile/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/09/08/makefile/" class="post-title-link" itemprop="url">makefile</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-09-08 17:15:57 / 修改时间：17:16:13" itemprop="dateCreated datePublished" datetime="2022-09-08T17:15:57+08:00">2022-09-08</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="Makefile学习"><a href="#Makefile学习" class="headerlink" title="Makefile学习"></a>Makefile学习</h1><p>之前只是略有了解，感觉十分方便，所以想深入了解一下。</p>
+<h2 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h2><p>Makefile是一个规则文件，make是一个程序，在命令行键入make后，make自动找见Makefile来解析其中的规则来完成编译工作。</p>
+<h2 id="hello-world"><a href="#hello-world" class="headerlink" title="hello-world"></a>hello-world</h2><p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220907185029578.png" alt="image-20220907185029578"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">a:</span><br><span class="line">	@echo &quot;hello world&quot;</span><br><span class="line">	@ls ./</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">os@os-virtual-machine:~/makefilestudy/1$ make</span><br><span class="line">hello world</span><br><span class="line">Makefile</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">a:</span></span><br><span class="line">	@echo <span class="string">&quot;hello world&quot;</span></span><br><span class="line">	@ls ./</span><br><span class="line">	gcc main.c</span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	@rm -rf a.out</span><br><span class="line">	@echo <span class="string">&quot;a.out del success&quot;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">os@os-virtual-machine:~/makefilestudy/1$ make</span><br><span class="line">hello world</span><br><span class="line">main.c	Makefile</span><br><span class="line">gcc main.c</span><br><span class="line">os@os-virtual-machine:~/makefilestudy/1$ make clean</span><br><span class="line">a.out del success</span><br></pre></td></tr></table></figure>
+
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220907190203085.png" alt="image-20220907190203085"></p>
+<h2 id="编译流程"><a href="#编译流程" class="headerlink" title="编译流程"></a>编译流程</h2><p>首先是把各个文件先编译成目标文件，然后再统一把目标文件进行链接，这样做的好处就是当修改了一个文件之后，在执行<code>make</code>并不会把所有文件全部再编译一次，而是只把改动的和改动相关的代码再编译一遍。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">calc:add.o sub.o multi.o</span><br><span class="line">	gcc add.o sub.o multi.o calc.cpp -o calc</span><br><span class="line"></span><br><span class="line">add.o:add.cpp</span><br><span class="line">	gcc -c add.cpp -o add.o</span><br><span class="line"></span><br><span class="line">sub.o:sub.cpp</span><br><span class="line">	gcc -c sub.cpp -o sub.o</span><br><span class="line"></span><br><span class="line">multi.o:multi.cpp</span><br><span class="line">	gcc -c multi.cpp -o multi.o</span><br></pre></td></tr></table></figure>
+
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220907194008573.png" alt="image-20220907194008573"></p>
+<h2 id="变量使用"><a href="#变量使用" class="headerlink" title="变量使用"></a>变量使用</h2><p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220907195303414.png" alt="image-20220907195303414"></p>
+<p>可以自定义变量，然后用$(变量名)来使用这个变量</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">OBJ=add.o sub.o multi.o calc.o</span><br><span class="line">TARGET=calc</span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line">	gcc <span class="variable">$(OBJ)</span> -o <span class="variable">$(TARGET)</span></span><br><span class="line"></span><br><span class="line"><span class="section">add.o:add.cpp</span></span><br><span class="line">	gcc -c add.cpp -o add.o</span><br><span class="line"></span><br><span class="line"><span class="section">sub.o:sub.cpp</span></span><br><span class="line">	gcc -c sub.cpp -o sub.o</span><br><span class="line"></span><br><span class="line"><span class="section">multi.o:multi.cpp</span></span><br><span class="line">	gcc -c multi.cpp -o multi.o</span><br><span class="line"></span><br><span class="line"><span class="section">calc.o:calc.cpp</span></span><br><span class="line">	gcc -c calc.cpp -o calc.o</span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	rm -rf *.o calc</span><br></pre></td></tr></table></figure>
+
+<p>可以使用系统变量更加简化</p>
+<p>$^就是所有不重复的依赖文件也就是<code>:</code>后面跟着的内容，$(TARGET)冒号后面是变量<code>OBJ</code>,所以是<code>add.o sub.o multi.o calc.o</code>,$@是目标文件的完整名称，也就是<code>$(TARGET)</code>,最后<code>gcc $^ -o $@</code>=<code>gcc add.o sub.o multi.o calc.o -o calc</code></p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">OBJ=add.o sub.o multi.o calc.o</span><br><span class="line">TARGET=calc</span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line">	gcc <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">add.o:add.cpp</span></span><br><span class="line">	gcc -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">sub.o:sub.cpp</span></span><br><span class="line">	gcc -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">multi.o:multi.cpp</span></span><br><span class="line">	gcc -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">calc.o:calc.cpp</span></span><br><span class="line">	gcc -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	rm -rf *.o <span class="variable">$(TARGET)</span></span><br></pre></td></tr></table></figure>
+
+<p>然后还可以使用系统常量来完成跨平台的一些效果</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">OBJ=add.o sub.o multi.o calc.o</span><br><span class="line">TARGET=calc</span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line">	<span class="variable">$(CXX)</span> <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">add.o:add.cpp</span></span><br><span class="line">	<span class="variable">$(CXX)</span> -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">sub.o:sub.cpp</span></span><br><span class="line">	<span class="variable">$(CXX)</span> -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">multi.o:multi.cpp</span></span><br><span class="line">	<span class="variable">$(CXX)</span> -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">calc.o:calc.cpp</span></span><br><span class="line">	<span class="variable">$(CXX)</span> -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	<span class="variable">$(RM)</span> *.o <span class="variable">$(TARGET)</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="伪目标和模式匹配"><a href="#伪目标和模式匹配" class="headerlink" title="伪目标和模式匹配"></a>伪目标和模式匹配</h2><h3 id="伪目标"><a href="#伪目标" class="headerlink" title="伪目标"></a>伪目标</h3><p>按照我的理解，可能广义上来说目标就是指这个目标的命令执行后最后产生的文件名，一般<code>make clean</code>就是执行clean目标的命令，如果在当前目录下touch了一个clean文件，然后再执行<code>make clean</code>会发现没有执行命令，原因就是make认为clean文件就是目标，已经存在而且没有更新所以不需要执行命令了。</p>
+<p>对于这种情况就得声明<code>clean</code>为伪目标了，所以可以看出当当前目标不生成对应文件，而是一种功能目标时就应该把他声明成伪目标。</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220907201801523.png" alt="image-20220907201801523"></p>
+<h3 id="模式匹配"><a href="#模式匹配" class="headerlink" title="模式匹配"></a>模式匹配</h3><p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220907204648885.png" alt="image-20220907204648885"></p>
+<p>感觉这个规则还是很方便的，就拿上面的makefile来说，可以修改成下面的样子,makefile就缩短成几行的样子了，至于这条规则的原理，大概就是他会生成第一个目标也就是<code>$(TARGET):$(OBJ)</code>，然后发现<code>add.o sub.o multi.o calc.o</code>这些依赖文件都没有生成，然后就会去找生成这些文件的目标，首先是第一个<code>add.o</code>，<code>%.o:%.cpp</code>目标就能匹配，然后就会执行这个目标的命令，进而生成<code>add.o</code>,其他所有的目标文件也是这样生成，最后生成<code>calc</code>。</p>
+<p>通过这个模式匹配，感觉makefile就是一层套一层，然后从最底层往上找，直到最底层的依赖全程都有了，再执行最底层的命令。有点递归那味了。</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">OBJ=add.o sub.o multi.o calc.</span><br><span class="line">TARGET=calc</span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line">	<span class="variable">$(CXX)</span> <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">%.o:%.cpp</span></span><br><span class="line">	<span class="variable">$(CXX)</span> -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	<span class="variable">$(RM)</span> *.o <span class="variable">$(TARGET)</span></span><br></pre></td></tr></table></figure>
+
+<p>这个makefile还可以利用<code>wildcard</code>和<code>patsubst</code>来增加makefile的泛用性</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#OBJ= sub.o multi.o calc.o add.o</span></span><br><span class="line">OBJ=<span class="variable">$(<span class="built_in">patsubst</span> %.cpp,%.o,$(<span class="built_in">wildcard</span> ./*.cpp)</span>)</span><br><span class="line">TARGET=calc</span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line">	<span class="variable">$(CXX)</span> <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">%.o:%.cpp</span></span><br><span class="line">	<span class="variable">$(CXX)</span> -c <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	<span class="variable">$(RM)</span> *.o <span class="variable">$(TARGET)</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="编译动态链接库"><a href="#编译动态链接库" class="headerlink" title="编译动态链接库"></a>编译动态链接库</h2><p>感觉。。。没啥。。。。，和makefile关系不大</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220907215742516.png" alt="image-20220907215742516"></p>
+<h2 id="通用部分做公共头文件"><a href="#通用部分做公共头文件" class="headerlink" title="通用部分做公共头文件"></a>通用部分做公共头文件</h2><p>makefile还有自动推导能力，上面的makefile还可以简短到以下几行</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#OBJ= sub.o multi.o calc.o add.o</span></span><br><span class="line">OBJ=<span class="variable">$(<span class="built_in">patsubst</span> %.cpp,%.o,$(<span class="built_in">wildcard</span> ./*.cpp)</span>)</span><br><span class="line">TARGET=calc</span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line">	<span class="variable">$(CXX)</span> <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	<span class="variable">$(RM)</span> *.o <span class="variable">$(TARGET)</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>makefile还能嵌套makefile,那就可以把通用的内容写在一个makefile中，然后在其他makefile中使用，如下例</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">TARGET=c</span><br><span class="line"></span><br><span class="line"><span class="keyword">include</span> ../makefile</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#公共</span></span><br><span class="line"></span><br><span class="line">SOURCE=<span class="variable">$(<span class="built_in">wildcard</span>  ./*.cpp ./*.c)</span></span><br><span class="line">OBJ=<span class="variable">$(<span class="built_in">patsubst</span>  %.cpp,%.o,<span class="variable">$(SOURCE)</span>)</span></span><br><span class="line">OBJ:=<span class="variable">$(<span class="built_in">patsubst</span>  %.c,%.o,<span class="variable">$(OBJ)</span>)</span></span><br><span class="line"></span><br><span class="line"><span class="meta"><span class="meta-keyword">.PHONY</span>:clean</span></span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line">	<span class="variable">$(CXX)</span> <span class="variable">$^</span> -o <span class="variable">$@</span></span><br><span class="line">	</span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	<span class="variable">$(RM)</span> <span class="variable">$(TARGET)</span> <span class="variable">$(OBJ)</span></span><br><span class="line">	</span><br><span class="line"><span class="section">show:</span></span><br><span class="line">	echo <span class="variable">$(SOURCE)</span></span><br><span class="line">	echo <span class="variable">$(OBJ)</span></span><br></pre></td></tr></table></figure>
+
+<p>在makefile中都是先解析所有变量然后再执行命令的，所以变量的声明放在哪里都是没有所谓的。</p>
+<p><code>=</code>,赋值操作，把终值赋值给变量，注意不能字节赋值给字节，比如Y=$(Y)</p>
+<p><code>：=</code>也是赋值，但是与<code>=</code>不同的是他不会受到它下面的代码以及变量的影响。</p>
+<h2 id="调用shell"><a href="#调用shell" class="headerlink" title="调用shell"></a>调用shell</h2><p>在makefile中可以使用<code>ifndef endif</code>来添加默认值</p>
+<p>在makefile中可以在目标以外执行shell命令，如下</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">A=<span class="variable">$(<span class="built_in">shell</span> ls)</span></span><br><span class="line"><span class="section">a:</span></span><br><span class="line">	echo <span class="variable">$(A)</span></span><br></pre></td></tr></table></figure>
+
+<p>在makefile中还可以调用其他makefile,不是像上面那样的包含，而是调用，因为很有时候不同模块有不同的makefile,要想直接全部就一起编译，可以再写个makefile调用他们，调用规则其实就是shell指令</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">a:</span></span><br><span class="line">	make -C ./makefile</span><br></pre></td></tr></table></figure>
+
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220908155748153.png" alt="image-20220908155748153"></p>
+<h2 id="条件判断-amp-循环"><a href="#条件判断-amp-循环" class="headerlink" title="条件判断&amp;循环"></a>条件判断&amp;循环</h2><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220908160944829.png" alt="image-20220908160944829" style="zoom:200%;" />
+
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220908161145932.png" alt="image-20220908161145932"></p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220908161321317.png" alt="image-20220908161321317"></p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220908163409283.png" alt="image-20220908163409283"></p>
+<h2 id="自定义函数"><a href="#自定义函数" class="headerlink" title="自定义函数"></a>自定义函数</h2><p>变量，if,循环和函数都有了，感觉和一门语言都差不多了。</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220908163840185.png" alt="image-20220908163840185"></p>
+<h2 id="install"><a href="#install" class="headerlink" title="install"></a>install</h2><p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220908165302800.png" alt="image-20220908165302800"></p>
+<p>例子，把二进制程序放置在一个目录下，然后在/bin目录中放一个二进制程序的软链接，然后就可以在任何目录中调用这个程序了。</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">TARGET:=006_main</span><br><span class="line">OBJ:=<span class="variable">$(TARGET)</span>.o</span><br><span class="line"></span><br><span class="line">CC:=g++</span><br><span class="line"></span><br><span class="line">PATH:=/tmp/006_main/</span><br><span class="line">BIN:=/usr/local/bin/</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="variable">$(TARGET)</span>:<span class="variable">$(OBJ)</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="section">install:<span class="variable">$(TARGET)</span></span></span><br><span class="line">	if [ -d <span class="variable">$(PATH)</span> ];\</span><br><span class="line">		then echo <span class="variable">$(PATH)</span> exist; \</span><br><span class="line">	<span class="keyword">else</span> \</span><br><span class="line">	  	/bin/mkdir <span class="variable">$(PATH)</span>;\</span><br><span class="line">	  	/bin/cp <span class="variable">$(TARGET)</span> <span class="variable">$(PATH)</span>;\</span><br><span class="line">  		/bin/ln -sv <span class="variable">$(PATH)</span><span class="variable">$(TARGET)</span> <span class="variable">$(BIN)</span>;\</span><br><span class="line">  	fi;</span><br><span class="line"></span><br><span class="line"><span class="section">clean:</span></span><br><span class="line">	<span class="variable">$(RM)</span> <span class="variable">$(TARGET)</span> <span class="variable">$(OBJ)</span></span><br><span class="line">	<span class="variable">$(RM)</span> -rf <span class="variable">$(PATH)</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta"><span class="meta-keyword">.PHONY</span>:clean install</span></span><br></pre></td></tr></table></figure>
+
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/08/12/%E8%93%9D%E5%B8%BD%E6%9D%AF%E5%8D%8A%E5%86%B3%E8%B5%9B-Smurfs%E5%A4%8D%E7%8E%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1352,81 +1480,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/08/slub-slab/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="rootzhang">
-      <meta itemprop="description" content="我的博客">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="study">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/04/08/slub-slab/" class="post-title-link" itemprop="url">slub/slab</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2022-04-08 17:20:10 / 修改时间：17:20:35" itemprop="dateCreated datePublished" datetime="2022-04-08T17:20:10+08:00">2022-04-08</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="kernelpwn-slub-slab"><a href="#kernelpwn-slub-slab" class="headerlink" title="kernelpwn slub/slab"></a>kernelpwn slub/slab</h1><p>总结一波内核分配内存（堆）的策略，不然做内核题总是半懂不懂的。</p>
-<p>内核管理内存页面使用了两种算法，伙伴算法和slub算法</p>
-<h2 id="伙伴算法"><a href="#伙伴算法" class="headerlink" title="伙伴算法"></a>伙伴算法</h2><p>伙伴算法是以页4k为单位管理内存的，也就是申请和释放的最小单位是4k，但是程序多数情况下不会申请这么大的内存，而是比较小的内存，就像用户态的堆一样，所以还需要一个内存管理算法支持这种功能，也就是slub算法</p>
-<h2 id="slub"><a href="#slub" class="headerlink" title="slub"></a>slub</h2><p>像libc申请释放堆块一样，slub也把堆进行进行了分组管理，每一组的大小是2^3,2^4….2^11字节，堆的大小是以8字节递增的，也就是(8,2048),当超过2048的时候就会使用伙伴系统提供的接口直接申请一个完整的页面，还有两个特殊的组96字节和192字节，这些组映射到kmalloc_caches[12]数组中的一个元素</p>
-<p><img src="https://img.lhyerror404.cn/error404/2020-03-22-144151.png" alt="img"></p>
-<p>这是用于slub管理内存的数据结构，可以看见每个kmalloc_caches元素又各种对应一个kmem_cache结构体，这个结构体中又能指向<code>kmem_cache_cpu</code>和<code>kmem_cache_node</code>两个数组，这两个结构体才是slub分配算法的关键</p>
-<p>有一个博客比喻的很好，<code>kmem_cache_node</code>相当于仓库，<code>kmem_cache_cpu</code>是真正用于分配内存的地方，每个kmalloc_caches元素都有自己的<code>kmem_cache_cpu</code>和<code>kmem_cache_node</code>。</p>
-<h3 id="kmem-cache-cpu和keme-cache-node"><a href="#kmem-cache-cpu和keme-cache-node" class="headerlink" title="kmem_cache_cpu和keme_cache_node"></a>kmem_cache_cpu和keme_cache_node</h3><p>slub会根据这个组的大小向伙伴算法申请整数倍4k的内存给kmem_cache_cpu,申请到这块内存叫做slab,其中kmem_cache_cpu.page就指向了slab的首地址，slub会根据这个组的大小把slab切割成很多个小的object,每个object的大小就是这个组的大小，当object还未被申请时候会有八个字节储存下一个object的地址，这样其实这个slab就被切割成大小相等的单向链表了，然后kmem_cache_cpu.freelist指向这个slab的第一个空闲object</p>
-<p><img src="http://hi.csdn.net/attachment/201111/7/0_1320655427Rtw3.gif" alt="img"></p>
-<p>当申请这个组的内存的时候如果这个组的kmem_cache_cpu没有一个slab的时候，slub就会申请一个slab并执行上述操作，然后把第一个obj标记为占用并返回给用户，下图体现了这个操作，申请了一个object以后kmem_cache_cpu就会根据这个object的next指向下一个空闲object。</p>
-<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220407214835446.png" alt="image-20220407214835446"></p>
-<p>至于为什么说kmem_cache_cpu为什么是内存申请的主要地方现在就很明朗了。</p>
-<p>可是kmem_cache_cpu指向的slab总有用完的时候，当这个slab用完怎么办，这时候就得用上<code>kmem_cache_node</code>这个结构体仓库了，kmem_cache_node有两个指针<code>partial</code>和<code>full</code>指向两个链表，其中partial指向有空闲obj的slab链表，full指向没有空闲的slab链表，如下图</p>
-<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220407220144459.png" alt="image-20220407220144459"></p>
-<p>当keme_cache_cpu指向的slab用完后就会放到kmem_cache_node.full上面，然后检查keme_cache_partial链表有没有有空闲的slab,如果有的话就会把第一个空闲的obj返回给用户，然后把这个slab给kmem_cache_cpu。</p>
-<p>如果kmem_cache_node.full上面的一个slab的一个obj被释放后这个slab就会移向partial。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这是slub算法的主要策略，不涉及源码解读（因为看不懂），先学着看，以后如果有必要会看看。</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1496,7 +1549,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">37</span>
+          <span class="site-state-item-count">38</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
