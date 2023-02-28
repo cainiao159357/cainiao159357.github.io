@@ -147,6 +147,81 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/08/slub-slab/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="rootzhang">
+      <meta itemprop="description" content="我的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="study">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2022/04/08/slub-slab/" class="post-title-link" itemprop="url">slub/slab</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-04-08 17:20:10 / 修改时间：17:20:35" itemprop="dateCreated datePublished" datetime="2022-04-08T17:20:10+08:00">2022-04-08</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="kernelpwn-slub-slab"><a href="#kernelpwn-slub-slab" class="headerlink" title="kernelpwn slub/slab"></a>kernelpwn slub/slab</h1><p>总结一波内核分配内存（堆）的策略，不然做内核题总是半懂不懂的。</p>
+<p>内核管理内存页面使用了两种算法，伙伴算法和slub算法</p>
+<h2 id="伙伴算法"><a href="#伙伴算法" class="headerlink" title="伙伴算法"></a>伙伴算法</h2><p>伙伴算法是以页4k为单位管理内存的，也就是申请和释放的最小单位是4k，但是程序多数情况下不会申请这么大的内存，而是比较小的内存，就像用户态的堆一样，所以还需要一个内存管理算法支持这种功能，也就是slub算法</p>
+<h2 id="slub"><a href="#slub" class="headerlink" title="slub"></a>slub</h2><p>像libc申请释放堆块一样，slub也把堆进行进行了分组管理，每一组的大小是2^3,2^4….2^11字节，堆的大小是以8字节递增的，也就是(8,2048),当超过2048的时候就会使用伙伴系统提供的接口直接申请一个完整的页面，还有两个特殊的组96字节和192字节，这些组映射到kmalloc_caches[12]数组中的一个元素</p>
+<p><img src="https://img.lhyerror404.cn/error404/2020-03-22-144151.png" alt="img"></p>
+<p>这是用于slub管理内存的数据结构，可以看见每个kmalloc_caches元素又各种对应一个kmem_cache结构体，这个结构体中又能指向<code>kmem_cache_cpu</code>和<code>kmem_cache_node</code>两个数组，这两个结构体才是slub分配算法的关键</p>
+<p>有一个博客比喻的很好，<code>kmem_cache_node</code>相当于仓库，<code>kmem_cache_cpu</code>是真正用于分配内存的地方，每个kmalloc_caches元素都有自己的<code>kmem_cache_cpu</code>和<code>kmem_cache_node</code>。</p>
+<h3 id="kmem-cache-cpu和keme-cache-node"><a href="#kmem-cache-cpu和keme-cache-node" class="headerlink" title="kmem_cache_cpu和keme_cache_node"></a>kmem_cache_cpu和keme_cache_node</h3><p>slub会根据这个组的大小向伙伴算法申请整数倍4k的内存给kmem_cache_cpu,申请到这块内存叫做slab,其中kmem_cache_cpu.page就指向了slab的首地址，slub会根据这个组的大小把slab切割成很多个小的object,每个object的大小就是这个组的大小，当object还未被申请时候会有八个字节储存下一个object的地址，这样其实这个slab就被切割成大小相等的单向链表了，然后kmem_cache_cpu.freelist指向这个slab的第一个空闲object</p>
+<p><img src="http://hi.csdn.net/attachment/201111/7/0_1320655427Rtw3.gif" alt="img"></p>
+<p>当申请这个组的内存的时候如果这个组的kmem_cache_cpu没有一个slab的时候，slub就会申请一个slab并执行上述操作，然后把第一个obj标记为占用并返回给用户，下图体现了这个操作，申请了一个object以后kmem_cache_cpu就会根据这个object的next指向下一个空闲object。</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220407214835446.png" alt="image-20220407214835446"></p>
+<p>至于为什么说kmem_cache_cpu为什么是内存申请的主要地方现在就很明朗了。</p>
+<p>可是kmem_cache_cpu指向的slab总有用完的时候，当这个slab用完怎么办，这时候就得用上<code>kmem_cache_node</code>这个结构体仓库了，kmem_cache_node有两个指针<code>partial</code>和<code>full</code>指向两个链表，其中partial指向有空闲obj的slab链表，full指向没有空闲的slab链表，如下图</p>
+<p><img src="C:\Users\张鹏\AppData\Roaming\Typora\typora-user-images\image-20220407220144459.png" alt="image-20220407220144459"></p>
+<p>当keme_cache_cpu指向的slab用完后就会放到kmem_cache_node.full上面，然后检查keme_cache_partial链表有没有有空闲的slab,如果有的话就会把第一个空闲的obj返回给用户，然后把这个slab给kmem_cache_cpu。</p>
+<p>如果kmem_cache_node.full上面的一个slab的一个obj被释放后这个slab就会移向partial。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这是slub算法的主要策略，不涉及源码解读（因为看不懂），先学着看，以后如果有必要会看看。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2022/04/08/kernelpwn%E5%88%B7%E9%A2%98%E8%AE%B0%E5%BD%95-md/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1026,124 +1101,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2022/02/10/%E5%86%85%E6%A0%B8pwn%E7%9A%84%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E5%92%8C%E5%88%9D%E8%AE%A4%E8%AF%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="rootzhang">
-      <meta itemprop="description" content="我的博客">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="study">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2022/02/10/%E5%86%85%E6%A0%B8pwn%E7%9A%84%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E5%92%8C%E5%88%9D%E8%AE%A4%E8%AF%86/" class="post-title-link" itemprop="url">内核pwn的环境搭建和初认识</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2022-02-10 20:31:19 / 修改时间：20:33:39" itemprop="dateCreated datePublished" datetime="2022-02-10T20:31:19+08:00">2022-02-10</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="内核pwn"><a href="#内核pwn" class="headerlink" title="内核pwn"></a>内核pwn</h1><p>今天就先不刷pwnabe.tw上的题了，开整内核方面的东西。</p>
-<h2 id="0x1-环境搭建"><a href="#0x1-环境搭建" class="headerlink" title="0x1 环境搭建"></a>0x1 环境搭建</h2><p>搭建1起来没有lot环境搭建困难，通过搭建环境也了解了很多东西，我第一次知道文件系统居然是独立的，以前以为一直和内核紧密相连，也越来越理解一切皆文件这句话了，不管是设备还是什么，都可以当做文件操作，真的很神奇。</p>
-<p>我是借鉴（照抄）这个博客搭建环境的<a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/258874%EF%BC%8C%E5%86%99%E7%9A%84%E5%BE%88%E7%BB%86%E5%BE%88%E6%A3%92%EF%BC%8C%E4%B8%8D%E4%BB%85%E8%AE%B2%E4%BA%86%E4%B8%80%E4%BA%9B%E5%8E%9F%E7%90%86%EF%BC%8C%E8%BF%98%E5%BE%88%E7%BB%86%E8%87%B4%E7%9A%84%E6%8A%8A%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E8%AE%B2%E6%98%8E%E7%99%BD%E4%BA%86%EF%BC%8C%E5%9C%A8%E6%90%AD%E5%BB%BA%E8%BF%87%E7%A8%8B%E4%B8%AD%EF%BC%8C%E6%88%91%E4%B8%BB%E8%A6%81%E5%8D%A1%E5%9C%A8%E4%B8%A4%E4%B8%AA%E5%9C%B0%E6%96%B9%E4%BA%86%EF%BC%8C%E4%B8%80%E4%B8%AA%E6%98%AF%E6%88%91%E4%B8%8D%E4%BA%86%E8%A7%A3Makefile,%E6%8A%8AM%E5%B0%8F%E5%86%99%E4%BA%86%EF%BC%8C%E5%AF%BC%E8%87%B4%E7%BC%96%E8%AF%91%E6%A8%A1%E5%9D%97%E7%9A%84%E6%97%B6%E5%80%99%E4%B8%80%E7%9B%B4%E4%B8%8D%E6%88%90%E5%8A%9F%EF%BC%8C%E5%BD%93%E6%97%B6%E9%83%BD%E5%BF%AB%E8%87%AA%E9%97%AD%E4%BA%86%EF%BC%8C%E5%8F%A6%E4%B8%80%E4%B8%AA%E6%98%AF%E6%95%B4%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E7%9A%84%E6%97%B6%E5%80%99%EF%BC%8C%E5%9C%A8etc%E7%9A%84initab%E7%BC%96%E5%86%99%E7%9A%84%E6%97%B6%E5%80%99%E6%9C%89%E6%9D%A1%E6%8C%87%E4%BB%A4%E4%B8%8D%E8%83%BD%E7%85%A7%E6%90%AC%EF%BC%8C%E5%8E%9F%E5%8D%9A%E5%AE%A2%E6%8C%87%E4%BB%A4%E5%A6%82%E4%B8%8B">https://www.anquanke.com/post/id/258874，写的很细很棒，不仅讲了一些原理，还很细致的把环境搭建讲明白了，在搭建过程中，我主要卡在两个地方了，一个是我不了解Makefile,把M小写了，导致编译模块的时候一直不成功，当时都快自闭了，另一个是整文件系统的时候，在etc的initab编写的时候有条指令不能照搬，原博客指令如下</a></p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">::sysinit:/etc/init.d/rcS</span><br><span class="line">::askfirst:/bin/ash</span><br><span class="line">::ctrlaltdel:/sbin/reboot</span><br><span class="line">::shutdown:/sbin/swapoff -a</span><br><span class="line">::shutdown:/bin/umount -a -r</span><br><span class="line">::restart:/sbin/init</span><br></pre></td></tr></table></figure>
-
-<p>正确指令</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">::sysinit:/etc/init.d/rcS</span><br><span class="line">ttyS0::askfirst:/bin/ash</span><br><span class="line">::ctrlaltdel:/sbin/reboot</span><br><span class="line">::shutdown:/sbin/swapoff -a</span><br><span class="line">::shutdown:/bin/umount -a -r</span><br><span class="line">::restart:/sbin/init</span><br></pre></td></tr></table></figure>
-
-<p>至于原因，我没看懂😃，剩下的照抄就行了，然后kernel就能通过qemu正确运行了。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">rootzhang@rootzhang-virtual-machine:~/pwn$ ./boot.sh</span><br><span class="line">warning: TCG doesn&#x27;t support requested feature: CPUID.01H:EDX.vme [bit 1]</span><br><span class="line">warning: TCG doesn&#x27;t support requested feature: CPUID.01H:EDX.vme [bit 1]</span><br><span class="line">mount: mounting none on /sys failed: No such device</span><br><span class="line"></span><br><span class="line">Please press Enter to activate this console. </span><br><span class="line">/ # ls</span><br><span class="line">bin      etc      init     lib64    proc     sbin     usr</span><br><span class="line">dev      home     lib      linuxrc  root     sys</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="0x2-内核初理解"><a href="#0x2-内核初理解" class="headerlink" title="0x2 内核初理解"></a>0x2 内核初理解</h2><h4 id="内核是什么东西"><a href="#内核是什么东西" class="headerlink" title="内核是什么东西"></a>内核是什么东西</h4><p>内核并不是什么神奇的东西，他也是一个程序，一切的行为都有对应代码支撑，他的定位就是中间层，对上提供用户态程序的运行和对用户态提供抽象的操作硬件的api,对下直接和硬件相互交互的程序。</p>
-<h4 id="内核和用户态的切换"><a href="#内核和用户态的切换" class="headerlink" title="内核和用户态的切换"></a>内核和用户态的切换</h4><p>当发生系统调用，产生异常，外设产生中断等事件的时候，会发生用户态到内核太的切换，一般的函数调用思路就是保存当前栈帧的状态，然后跳到新地址，内核态和用户态的切换也是类似，其中用户态到内核态的切换具体过程如下（照搬的）</p>
-<ol>
-<li><p>通过 <code>swapgs</code> 切换 GS 段寄存器（代码段寄存器），将 GS 寄存器值和一个特定位置的值进行交换，目的是保存 GS 值，同时将该位置的值作为内核执行时的 GS 值使用。</p>
-</li>
-<li><p>将当前栈顶（用户空间栈顶）记录在 CPU 独占变量区域里，将 CPU 独占区域里记录的内核栈顶放入<code>RSP/ESP</code>。</p>
-</li>
-<li><p>通过 push 保存各寄存器值，具体的</p>
-<p>代码如下:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">ENTRY(entry_SYSCALL_64)</span><br><span class="line">/* SWAPGS_UNSAFE_STACK是一个宏，x86直接定义为swapgs指令 */</span><br><span class="line">SWAPGS_UNSAFE_STACK</span><br><span class="line"></span><br><span class="line">/* 保存栈值，并设置内核栈 */</span><br><span class="line">movq %rsp, PER_CPU_VAR(rsp_scratch)</span><br><span class="line">movq PER_CPU_VAR(cpu_current_top_of_stack), %rsp</span><br><span class="line"></span><br><span class="line">/* 通过push保存寄存器值，形成一个pt_regs结构 */</span><br><span class="line">/* Construct struct pt_regs on stack */</span><br><span class="line">pushq  $__USER_DS                /* pt_regs-&gt;ss */</span><br><span class="line">pushq  PER_CPU_VAR(rsp_scratch)  /* pt_regs-&gt;sp */</span><br><span class="line">pushq  %r11                      /* pt_regs-&gt;flags */</span><br><span class="line">pushq  $__USER_CS                /* pt_regs-&gt;cs */</span><br><span class="line">pushq  %rcx                      /* pt_regs-&gt;ip */</span><br><span class="line">pushq  %rax                      /* pt_regs-&gt;orig_ax */</span><br><span class="line">pushq  %rdi                      /* pt_regs-&gt;di */</span><br><span class="line">pushq  %rsi                      /* pt_regs-&gt;si */</span><br><span class="line">pushq  %rdx                      /* pt_regs-&gt;dx */</span><br><span class="line">pushq  %rcx tuichu               /* pt_regs-&gt;cx */</span><br><span class="line">pushq  $-ENOSYS                  /* pt_regs-&gt;ax */</span><br><span class="line">pushq  %r8                       /* pt_regs-&gt;r8 */</span><br><span class="line">pushq  %r9                       /* pt_regs-&gt;r9 */</span><br><span class="line">pushq  %r10                      /* pt_regs-&gt;r10 */</span><br><span class="line">pushq  %r11                      /* pt_regs-&gt;r11 */</span><br><span class="line">sub $(6*8), %rsp                 /* pt_regs-&gt;bp, bx, r12-15 not saved */</span><br></pre></td></tr></table></figure></li>
-</ol>
-<p>内核态到用户态的切换也是如此</p>
-<h4 id="内核的分级保护域"><a href="#内核的分级保护域" class="headerlink" title="内核的分级保护域"></a>内核的分级保护域</h4><p>简称rings,感觉就是权限的意思，大部分现代操作系统只采用ring0权限和ring3权限，ring0权限就是root,kernel就是ring0，ring3权限较低，一般用户态程序就是ring3,以我目前的粗略理解，kernelpwn就是通过内核模块的漏洞对用户态程序进行提权到root然后getshell。</p>
-<h4 id="进程管理"><a href="#进程管理" class="headerlink" title="进程管理"></a>进程管理</h4><p>kernel调度着所有系统资源，进程也是资源，也归kernel管，管理的策略就是使用结构体 <code>task_struct</code> 记录进程信息，每个<code>task_struct</code>都记录着一个进程的信息，其中又有专门的结构体cred记录程序的权限，每个程序都有一个cred结构，如果能修改对应进程的cred，那也就能修改这个进程的权限了，结构体源码如下</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">cred</span> &#123;</span></span><br><span class="line">    <span class="keyword">atomic_t</span>    usage;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_DEBUG_CREDENTIALS</span></span><br><span class="line">    <span class="keyword">atomic_t</span>    subscribers;           <span class="comment">/* number of processes subscribed */</span></span><br><span class="line">    <span class="keyword">void</span>        *put_addr;</span><br><span class="line">    <span class="keyword">unsigned</span>    magic;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CRED_MAGIC  0x43736564</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CRED_MAGIC_DEAD 0x44656144</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">    <span class="keyword">kuid_t</span>      uid;                   <span class="comment">/* real UID of the task */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      gid;                   <span class="comment">/* real GID of the task */</span></span><br><span class="line">    <span class="keyword">kuid_t</span>      suid;                  <span class="comment">/* saved UID of the task */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      sgid;                  <span class="comment">/* saved GID of the task */</span></span><br><span class="line">    <span class="keyword">kuid_t</span>      euid;                  <span class="comment">/* effective UID of the task */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      egid;                  <span class="comment">/* effective GID of the task */</span></span><br><span class="line">    <span class="keyword">kuid_t</span>      fsuid;                 <span class="comment">/* UID for VFS ops */</span></span><br><span class="line">    <span class="keyword">kgid_t</span>      fsgid;                 <span class="comment">/* GID for VFS ops */</span></span><br><span class="line">    <span class="keyword">unsigned</span>    securebits;            <span class="comment">/* SUID-less security management */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_inheritable;   <span class="comment">/* caps our children can inherit */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_permitted;     <span class="comment">/* caps we&#x27;re permitted */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_effective;     <span class="comment">/* caps we can actually use */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_bset;          <span class="comment">/* capability bounding set */</span></span><br><span class="line">    <span class="keyword">kernel_cap_t</span>    cap_ambient;       <span class="comment">/* Ambient capability set */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_KEYS</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span>   jit_keyring;       <span class="comment">/* default keyring to attach requested</span></span><br><span class="line"><span class="comment">    /* keys to */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span> __<span class="title">rcu</span> *<span class="title">session_keyring</span>;</span> <span class="comment">/* keyring inherited over fork */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span>  *<span class="title">process_keyring</span>;</span>      <span class="comment">/* keyring private to this process */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span>  *<span class="title">thread_keyring</span>;</span>       <span class="comment">/* keyring private to this thread */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">key</span>  *<span class="title">request_key_auth</span>;</span>     <span class="comment">/* assumed request_key authority */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_SECURITY</span></span><br><span class="line">    <span class="keyword">void</span>        *security;             <span class="comment">/* subjective LSM security */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">user_struct</span> *<span class="title">user</span>;</span>          <span class="comment">/* real user ID subscription */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">user_namespace</span> *<span class="title">user_ns</span>;</span>    <span class="comment">/* user_ns the caps and keyrings are relative to. */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">group_info</span> *<span class="title">group_info</span>;</span>     <span class="comment">/* supplementary groups for euid/fsgid */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">rcu_head</span> <span class="title">rcu</span>;</span>               <span class="comment">/* RCU deletion hook */</span></span><br><span class="line">&#125; __randomize_layout;</span><br></pre></td></tr></table></figure>
-
-<h4 id="进程权限改变"><a href="#进程权限改变" class="headerlink" title="进程权限改变"></a>进程权限改变</h4><p>进程提权主要依靠两个协力完成。</p>
-<ul>
-<li><code>struct cred* prepare_kernel_cred(struct task_struct* daemon)</code>：该函数用以拷贝一个进程的cred结构体，并返回一个新的cred结构体，需要注意的是<code>daemon</code>参数应为<strong>有效的进程描述符地址或NULL</strong>，假如传入的是null，那函数就会返回一个root权限的cred.</li>
-<li><code>int commit_creds(struct cred *new)</code>：该函数用以将一个新的<code>cred</code>结构体应用到进程</li>
-</ul>
-<p>通过commit_creds(prepare_kernel_cred(NULL))这套组合拳就能把用户态进程的cred更新为一个root的cred.</p>
-<p>（也有可能直接溢出改，我猜的，毕竟还没做过题😃）</p>
-<h4 id="内核保护机制"><a href="#内核保护机制" class="headerlink" title="内核保护机制"></a>内核保护机制</h4><p><strong>KASLR</strong>：内核地址随机化，和aslr类似，知道了一个地址再加上一个偏移就能知道基地址了，在没开启KASLR的时候，内核的基地址是0xffffffff81000000</p>
-<p><strong>STACK PROTECTOR</strong>：和canary类似，用以检测是否发生了内核堆栈溢出，如果发生内核堆栈溢出则会产生kernel panic.</p>
-<p><strong>SMAP/SMEP</strong>:smap的作用时阻止内核空间直接访问用户空间的数据，smep用以阻止内核空间执行用户空间的数据。目的是让内核空间和用户空间完全隔开。</p>
-<p>一共有两种绕过（照搬）</p>
-<ul>
-<li>在设计中，为了使隔离的数据进行交换时具有更高的性能，隐性地址共享始终存在（VDSO &amp; VSYSCALL），<strong>用户态进程与内核共享同一块物理内存</strong>，因此通过隐性内存共享可以完整的绕过软件和硬件的隔离保护，这种攻击方式被称之为<code>ret2dir</code>（return-to-direct-mapped memory ）</li>
-<li>Intel下系统根据CR4控制寄存器的第20位标识是否开启SMEP保护（1为开启，0为关闭），若是能够通过kernel ROP改变CR4寄存器的值便能够关闭SMEP保护，完成SMEP-bypass，接下来就能够重新进行ret2usr</li>
-</ul>
-<p><strong>KPTI</strong>：KPTI即<code>内核页表隔离</code>（Kernel page-table isolation），内核空间与用户空间分别使用两组不同的页表集，这对于内核的内存管理产生了根本性的变化（完全没理解）</p>
-<h4 id="LKMs"><a href="#LKMs" class="headerlink" title="LKMs"></a>LKMs</h4><p>可装载内核模块，简称LKMs,顾名思义就是内核中可装载可拆卸的程序，可以提供内核原本不具备的服务又不至于重新更新整个系统的东西，一般的kernelpwn题的漏洞都是出在出题人自己写的lkms上面。</p>
-<ul>
-<li><code>lsmod</code>：列出现有的LKMs</li>
-<li><code>insmod</code>：装载新的LKM（需要root）</li>
-<li><code>rmmod</code>：从内核中移除LKM（需要root）</li>
-</ul>
-<h4 id="内核态函数调用-照搬"><a href="#内核态函数调用-照搬" class="headerlink" title="内核态函数调用(照搬)"></a>内核态函数调用(照搬)</h4><ol>
-<li><code>printf()</code>变更为**<code>printk()</code>**，但需要注意的是<code>printk()</code><strong>不一定会把内容显示到终端上，但一定在内核缓冲区里</strong>，可以通过 <code>dmesg</code> 查看效果。</li>
-<li><code>memcpy()</code>变更为<code>copy_from_user()/copy_to_user()</code><ul>
-<li>copy_from_user() 实现了将用户空间的数据传送到内核空间</li>
-<li>copy_to_user() 实现了将内核空间的数据传送到用户空间</li>
-</ul>
-</li>
-<li><code>malloc()</code>变更为**<code>kmalloc()</code>**，内核态的内存分配函数，和<code>malloc()</code>相似，但使用的是 <code>slab/slub</code> 分配器</li>
-<li><code>free()</code>变更为**<code>kfree()</code>**，同 <code>kmalloc()</code></li>
-</ol>
-<p>对内核的搭建和认识就到这了，下面进入实战阶段</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1213,7 +1170,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">47</span>
+          <span class="site-state-item-count">48</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
